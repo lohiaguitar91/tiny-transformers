@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>How a network learns what to adjust</title>
+<style>
+  :root{
+    --bg:#0B0F17; --panel:#121926; --panel-2:#0E1420; --border:#232E3F;
+    --text:#E7E9EE; --muted:#8792A2;
+    --amber:#E8A33D; --amber-dim:#3A2E17;
+    --teal:#6FA8C9; --teal-dim:#152530;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); padding:32px 20px 80px; line-height:1.5;}
+  .wrap{max-width:960px; margin:0 auto;}
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); margin-bottom:8px;}
+  h1{font-size:26px; margin:0 0 6px; font-weight:650; letter-spacing:-0.01em;}
+  .sub{color:var(--muted); font-size:14.5px; max-width:680px; margin:0 0 32px;}
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px 22px; margin-bottom:20px;}
+  .panel h2{font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--teal); margin:0 0 14px; font-weight:650;}
+  .note{font-size:12.5px; color:var(--muted); margin-top:10px;}
+  code{font-family:var(--mono); background:var(--panel-2); padding:1px 5px; border-radius:4px; font-size:12.5px;}
+
+  /* --- architecture panel --- */
+  .arch-grid{display:grid; grid-template-columns:1fr 1fr; gap:22px;}
+  @media (max-width:640px){.arch-grid{grid-template-columns:1fr;}}
+  .term{border-bottom:1px solid var(--border); padding:12px 0;}
+  .term:last-child{border-bottom:none;}
+  .term-name{font-family:var(--mono); color:var(--amber); font-size:13.5px; font-weight:650;}
+  .term-def{font-size:13px; color:var(--text); margin-top:4px;}
+  .sliders{display:flex; flex-direction:column; gap:14px; margin-top:6px;}
+  .slider-row{display:flex; align-items:center; gap:12px; font-family:var(--mono); font-size:13px;}
+  .slider-row label{width:120px; color:var(--muted); flex-shrink:0;}
+  .slider-row input[type=range]{flex:1; accent-color:var(--amber);}
+  .slider-row .val{width:56px; text-align:right; color:var(--text);}
+  .param-readout{
+    margin-top:16px; background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:14px 16px; font-family:var(--mono); font-size:13px;
+  }
+  .param-readout .big{color:var(--amber); font-size:20px; font-weight:650;}
+  .stack-diagram{margin-top:16px; display:flex; flex-direction:column; align-items:center; gap:0;}
+  .stack-box{
+    font-family:var(--mono); font-size:11.5px; color:var(--muted); background:var(--panel-2);
+    border:1px solid var(--border); border-radius:5px; padding:5px 10px; width:100%; text-align:center;
+  }
+  .stack-repeat{
+    border:1px dashed var(--teal); border-radius:8px; padding:10px; margin:4px 0; width:100%;
+    display:flex; flex-direction:column; gap:5px; align-items:center; position:relative;
+  }
+  .stack-repeat .rep-label{position:absolute; top:-9px; right:8px; background:var(--bg); color:var(--teal); font-family:var(--mono); font-size:10.5px; padding:0 5px;}
+  .head-row{display:flex; gap:3px; flex-wrap:wrap; justify-content:center; margin:2px 0;}
+  .head{width:9px; height:9px; background:var(--teal-dim); border:1px solid var(--teal); border-radius:2px;}
+
+  /* --- backprop panel --- */
+  .netdiagram{display:flex; align-items:center; justify-content:space-between; gap:6px; margin:18px 0; flex-wrap:wrap;}
+  .node{
+    font-family:var(--mono); font-size:12px; text-align:center; background:var(--panel-2);
+    border:2px solid var(--border); border-radius:8px; padding:10px 12px; min-width:78px; transition:.25s;
+  }
+  .node .label{color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em;}
+  .node .value{color:var(--text); font-size:13px; margin-top:3px;}
+  .node.fwd-active{border-color:var(--teal); box-shadow:0 0 12px -2px var(--teal);}
+  .node.bwd-active{border-color:var(--amber); box-shadow:0 0 12px -2px var(--amber);}
+  .arrow{font-family:var(--mono); font-size:16px; color:var(--border); flex-shrink:0;}
+  .arrow.fwd-active{color:var(--teal);}
+  .arrow.bwd-active{color:var(--amber);}
+  .legend{display:flex; gap:20px; font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-top:8px;}
+  .legend span.dot{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:middle;}
+  .bars{display:flex; flex-direction:column; gap:6px; margin-top:14px;}
+  .bar-row{display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:12.5px;}
+  .bar-row .tok{width:36px; color:var(--text);}
+  .bar-track{flex:1; background:var(--panel-2); border-radius:5px; height:16px; overflow:hidden; border:1px solid var(--border);}
+  .bar-fill{height:100%; background:linear-gradient(90deg, var(--teal), var(--amber)); transition:width .3s;}
+  .bar-row .pct{width:52px; text-align:right; color:var(--muted);}
+  .controls{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; align-items:center;}
+  button{font-family:var(--sans); font-size:13.5px; font-weight:600; background:var(--panel-2); color:var(--text); border:1px solid var(--border); padding:9px 16px; border-radius:7px; cursor:pointer; transition:.15s;}
+  button:hover:not(:disabled){border-color:var(--amber); color:var(--amber);}
+  button.primary{background:var(--amber); color:#1a1204; border-color:var(--amber);}
+  button.primary:hover{opacity:.88; color:#1a1204;}
+  .status{font-family:var(--mono); font-size:12.5px; color:var(--muted); margin-top:10px;}
+  .gradbox{font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:12px; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px 14px;}
+  .gradbox .row{display:flex; justify-content:space-between; padding:3px 0;}
+  .gradbox .row span:last-child{color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Putting it together</div>
+  <h1>How does a network know what to adjust?</h1>
+  <p class="sub">Two things, side by side: what those architecture numbers actually mean, and — the real answer to "how does it know" — backpropagation, which is the chain rule run backward through every layer.</p>
+
+  <div class="panel">
+    <h2>Architecture terms — drag to see how they scale</h2>
+    <div class="arch-grid">
+      <div>
+        <div class="term"><div class="term-name">hidden_dim</div><div class="term-def">The width of the vector that represents each token as it flows through the network. Everything — embeddings, attention, MLP — operates on vectors this wide.</div></div>
+        <div class="term"><div class="term-name">layers</div><div class="term-def">How many times the vector gets passed through an attention+MLP block in sequence. Each pass refines the representation further.</div></div>
+        <div class="term"><div class="term-name">attention heads</div><div class="term-def">Each attention layer splits its work into this many parallel, smaller attention computations, each with dimension hidden_dim ÷ heads — one might track grammar, another long-range references, etc.</div></div>
+        <div class="term"><div class="term-name">vocab_size</div><div class="term-def">How many distinct tokens the tokenizer can produce — sets the size of the embedding table and the final logit layer.</div></div>
+
+        <div class="sliders">
+          <div class="slider-row"><label>hidden_dim</label><input type="range" id="s_hidden" min="256" max="16384" step="256" value="12288"><span class="val" id="v_hidden"></span></div>
+          <div class="slider-row"><label>layers</label><input type="range" id="s_layers" min="4" max="128" step="1" value="128"><span class="val" id="v_layers"></span></div>
+          <div class="slider-row"><label>heads</label><input type="range" id="s_heads" min="1" max="128" step="1" value="96"><span class="val" id="v_heads"></span></div>
+          <div class="slider-row"><label>vocab_size</label><input type="range" id="s_vocab" min="1000" max="200000" step="1000" value="100000"><span class="val" id="v_vocab"></span></div>
+        </div>
+        <div class="param-readout">
+          <div>head_dim = hidden_dim ÷ heads = <span id="headdim">—</span></div>
+          <div style="margin-top:6px;">approx. total parameters:</div>
+          <div class="big" id="paramcount">—</div>
+        </div>
+      </div>
+      <div>
+        <div class="stack-diagram" id="stackDiagram"></div>
+        <p class="note">Every layer has the <em>same shape</em>, stacked back to back — depth (layers) and width (hidden_dim) are independent knobs, and heads just subdivide the attention step inside each layer.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Forward pass — "demo" heading toward "n"</h2>
+    <p class="note" style="margin-top:0;">A tiny 2-layer network standing in for the real (128-layer) stack. Watch a signal move forward, get scored, then watch the error signal move <em>backward</em> to find out what each layer should change.</p>
+    <div class="netdiagram" id="netDiagram"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--teal)"></span>forward pass (computing a guess)</span>
+      <span><span class="dot" style="background:var(--amber)"></span>backward pass (assigning blame)</span>
+    </div>
+    <div class="bars" id="bars"></div>
+    <div class="controls">
+      <button class="primary" id="forwardBtn">▶ Run forward pass</button>
+      <button id="backwardBtn" disabled>◀ Run backward pass (backprop)</button>
+      <button id="applyBtn" disabled>Apply update to weights</button>
+      <button id="resetBtn">Reset network</button>
+    </div>
+    <div class="status" id="status">Click "Run forward pass" to get a prediction from the current (untrained) weights.</div>
+    <div class="gradbox" id="gradbox" style="display:none;"></div>
+  </div>
+
+  <div class="panel">
+    <h2>The chain rule, in one sentence</h2>
+    <p class="note" style="margin:0;">The loss function only ever looks at the <em>final</em> output. To find out how much an early layer's weights are to blame, backprop multiplies the error at the output by every derivative on the path back to that layer — layer 2's gradient first, then layer 1's gradient is computed <em>from</em> layer 2's, one step at a time, all the way to the input. No layer is ever graded directly against the training label except the last one; every earlier layer only ever learns from the layer just downstream of it.</p>
+  </div>
+</div>
+
+<script>
+/* ============ Architecture panel ============ */
+const sHidden=document.getElementById('s_hidden'), sLayers=document.getElementById('s_layers'),
+      sHeads=document.getElementById('s_heads'), sVocab=document.getElementById('s_vocab');
+function fmt(n){ return n>=1e9?(n/1e9).toFixed(1)+'B':n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':n.toString(); }
+
+function renderStack(layers, heads){
+  const el = document.getElementById('stackDiagram');
+  const shownHeads = Math.min(heads, 32);
+  const headRow = Array.from({length:shownHeads}).map(()=>'<div class="head"></div>').join('') + (heads>32?`<span style="font-family:var(--mono);font-size:10px;color:var(--muted);align-self:center;">+${heads-32}</span>`:'');
+  el.innerHTML = `
+    <div class="stack-box">token embedding lookup</div>
+    <div class="stack-repeat">
+      <span class="rep-label">× ${layers} layers</span>
+      <div class="stack-box">attention (${heads} heads)</div>
+      <div class="head-row">${headRow}</div>
+      <div class="stack-box">MLP</div>
+    </div>
+    <div class="stack-box">final layer → logits (size = vocab_size)</div>
+  `;
+}
+
+function updateArch(){
+  const hidden = +sHidden.value, layers = +sLayers.value, heads = +sHeads.value, vocab = +sVocab.value;
+  document.getElementById('v_hidden').textContent = hidden;
+  document.getElementById('v_layers').textContent = layers;
+  document.getElementById('v_heads').textContent = heads;
+  document.getElementById('v_vocab').textContent = vocab;
+  document.getElementById('headdim').textContent = (heads>0 ? (hidden/heads).toFixed(1) : '—');
+
+  // rough param formula: per layer ~ attention(4*d^2) + MLP(8*d^2) = 12*d^2 ; plus embed+unembed 2*vocab*d
+  const perLayer = 12 * hidden * hidden;
+  const total = layers * perLayer + 2 * vocab * hidden;
+  document.getElementById('paramcount').textContent = '~' + fmt(total) + ' parameters';
+  renderStack(layers, heads);
+}
+[sHidden,sLayers,sHeads,sVocab].forEach(s=>s.addEventListener('input', updateArch));
+updateArch();
+
+/* ============ Forward/backward toy network ============ */
+const candidates = ['n',' ','.','l'];
+const targetIdx = 0;
+let W1, W2, ctx, hiddenRaw, hiddenAct, logits, probs, gradLogits, gradHidden, gradW2, gradW1;
+let stage = 'idle'; // idle -> forward -> backward -> ready-to-apply
+
+function seededRand(seed){ let s=seed; return ()=>{ s=(s*9301+49297)%233280; return s/233280; }; }
+function randn(rng){ let u=1-rng(), v=rng(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function initNet(){
+  const rng = seededRand(7);
+  ctx = Array.from({length:4}, ()=>randn(rng)*0.3);          // context vector, dim 4
+  W1  = Array.from({length:3}, ()=>Array.from({length:4}, ()=>randn(rng)*0.15)); // hidden layer, 4->3
+  W2  = Array.from({length:4}, ()=>Array.from({length:3}, ()=>randn(rng)*0.15)); // output layer, 3->4
+  stage='idle';
+  document.getElementById('backwardBtn').disabled = true;
+  document.getElementById('applyBtn').disabled = true;
+  document.getElementById('gradbox').style.display='none';
+  document.getElementById('status').textContent = 'Click "Run forward pass" to get a prediction from the current (untrained) weights.';
+  renderNet(); renderBars(null);
+}
+
+function tanh(x){ return Math.tanh(x); }
+function dtanh(y){ return 1 - y*y; } // derivative given tanh output y
+
+function matvec(M, v){ return M.map(row => row.reduce((s,w,i)=>s+w*v[i], 0)); }
+
+function softmax(arr){
+  const m = Math.max(...arr);
+  const ex = arr.map(x=>Math.exp(x-m));
+  const sum = ex.reduce((a,b)=>a+b,0);
+  return ex.map(x=>x/sum);
+}
+
+function forwardPass(){
+  hiddenRaw = matvec(W1, ctx);
+  hiddenAct = hiddenRaw.map(tanh);
+  logits = matvec(W2, hiddenAct);
+  probs = softmax(logits);
+  stage = 'forward';
+  document.getElementById('backwardBtn').disabled = false;
+  document.getElementById('applyBtn').disabled = true;
+  const loss = -Math.log(probs[targetIdx]+1e-9);
+  document.getElementById('status').textContent = `Forward pass complete. Loss = ${loss.toFixed(4)} (lower is better). Target token is 'n' — now run backprop to see what each layer should change.`;
+  renderNet('fwd'); renderBars(probs);
+  document.getElementById('gradbox').style.display='none';
+}
+
+function backwardPass(){
+  const onehot = candidates.map((_,i)=>i===targetIdx?1:0);
+  gradLogits = probs.map((p,i)=>p-onehot[i]);                              // dL/dlogits
+  gradW2 = gradLogits.map(gl => hiddenAct.map(h => gl*h));                 // outer product
+  gradHidden = [0,1,2].map(j => gradLogits.reduce((s,gl,i)=>s+gl*W2[i][j],0)); // W2^T @ gradLogits
+  const gradHiddenRaw = gradHidden.map((g,j)=>g*dtanh(hiddenAct[j]));      // through tanh derivative
+  gradW1 = gradHiddenRaw.map(g => ctx.map(c => g*c));                      // outer product
+  stage = 'backward';
+  document.getElementById('applyBtn').disabled = false;
+  document.getElementById('status').textContent = `Backprop complete. Layer 2's gradient was computed first (directly from the loss); layer 1's gradient was computed from layer 2's, via the chain rule — layer 1 never saw the label directly.`;
+  const g2mag = Math.sqrt(gradW2.flat().reduce((s,x)=>s+x*x,0)).toFixed(4);
+  const g1mag = Math.sqrt(gradW1.flat().reduce((s,x)=>s+x*x,0)).toFixed(4);
+  const gb = document.getElementById('gradbox');
+  gb.style.display='block';
+  gb.innerHTML = `
+    <div class="row"><span>||∂Loss/∂W2|| (output layer, computed 1st)</span><span>${g2mag}</span></div>
+    <div class="row"><span>||∂Loss/∂W1|| (hidden layer, computed 2nd, using ∂Loss/∂W2)</span><span>${g1mag}</span></div>`;
+  renderNet('bwd');
+}
+
+function applyUpdate(){
+  const lr = 1.2;
+  for (let i=0;i<W2.length;i++) for (let j=0;j<W2[i].length;j++) W2[i][j] -= lr*gradW2[i][j];
+  for (let i=0;i<W1.length;i++) for (let j=0;j<W1[i].length;j++) W1[i][j] -= lr*gradW1[i][j];
+  document.getElementById('applyBtn').disabled = true;
+  document.getElementById('backwardBtn').disabled = true;
+  document.getElementById('status').textContent = `Weights updated. Run the forward pass again to see the new probabilities — P(n) should be higher.`;
+  renderNet(null);
+}
+
+function renderNet(mode){
+  const nd = document.getElementById('netDiagram');
+  const cls = (part) => {
+    if (mode==='fwd') return part!=='loss' ? 'fwd-active' : 'fwd-active';
+    if (mode==='bwd') return 'bwd-active';
+    return '';
+  };
+  const val = (arr) => arr ? '['+arr.map(x=>x.toFixed(2)).join(', ')+']' : '—';
+  nd.innerHTML = `
+    <div class="node ${mode?cls('ctx'):''}"><div class="label">context</div><div class="value">${val(ctx)}</div></div>
+    <div class="arrow ${mode?cls('a1'):''}">→</div>
+    <div class="node ${mode?cls('w1'):''}"><div class="label">W1 (hidden)</div><div class="value">3×4</div></div>
+    <div class="arrow ${mode?cls('a2'):''}">→</div>
+    <div class="node ${mode?cls('h'):''}"><div class="label">hidden (tanh)</div><div class="value">${val(hiddenAct)}</div></div>
+    <div class="arrow ${mode?cls('a3'):''}">→</div>
+    <div class="node ${mode?cls('w2'):''}"><div class="label">W2 (output)</div><div class="value">4×3</div></div>
+    <div class="arrow ${mode?cls('a4'):''}">→</div>
+    <div class="node ${mode?cls('logits'):''}"><div class="label">logits</div><div class="value">${val(logits)}</div></div>
+    <div class="arrow ${mode?cls('a5'):''}">→</div>
+    <div class="node ${mode?cls('loss'):''}"><div class="label">loss vs 'n'</div><div class="value">${probs?(-Math.log(probs[targetIdx]+1e-9)).toFixed(3):'—'}</div></div>
+  `;
+}
+
+function renderBars(p){
+  const b = document.getElementById('bars');
+  b.innerHTML = candidates.map((c,i)=>{
+    const pct = p ? (p[i]*100) : 25;
+    return `<div class="bar-row"><span class="tok">'${c}'</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="pct">${pct.toFixed(1)}%</span></div>`;
+  }).join('');
+}
+
+document.getElementById('forwardBtn').addEventListener('click', forwardPass);
+document.getElementById('backwardBtn').addEventListener('click', backwardPass);
+document.getElementById('applyBtn').addEventListener('click', applyUpdate);
+document.getElementById('resetBtn').addEventListener('click', initNet);
+
+initNet();
+</script>
+</body>
+</html>

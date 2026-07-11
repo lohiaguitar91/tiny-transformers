@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BPE — the tokenizer's algorithm</title>
+<style>
+  :root{
+    --bg:#0B0F17;
+    --panel:#121926;
+    --panel-2:#0E1420;
+    --border:#232E3F;
+    --text:#E7E9EE;
+    --muted:#8792A2;
+    --amber:#E8A33D;
+    --amber-dim:#3A2E17;
+    --teal:#6FA8C9;
+    --teal-dim:#152530;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans); padding:32px 20px 80px;
+    line-height:1.5;
+  }
+  .wrap{max-width:920px; margin:0 auto;}
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--amber); margin-bottom:8px;
+  }
+  h1{font-size:26px; margin:0 0 6px; font-weight:650; letter-spacing:-0.01em;}
+  .sub{color:var(--muted); font-size:14.5px; max-width:640px; margin:0 0 32px;}
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:20px 22px; margin-bottom:20px;
+  }
+  .panel h2{
+    font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--teal);
+    margin:0 0 14px; font-weight:650;
+  }
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  button{
+    font-family:var(--sans); font-size:13.5px; font-weight:600;
+    background:var(--panel-2); color:var(--text); border:1px solid var(--border);
+    padding:9px 16px; border-radius:7px; cursor:pointer; transition:.15s;
+  }
+  button:hover:not(:disabled){border-color:var(--amber); color:var(--amber);}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+  button.primary{background:var(--amber); color:#1a1204; border-color:var(--amber);}
+  button.primary:hover:not(:disabled){opacity:.88; color:#1a1204;}
+  .corpus-table{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13.5px;}
+  .corpus-table td{padding:6px 10px; border-bottom:1px solid var(--border);}
+  .corpus-table td.freq{color:var(--muted); text-align:right; width:60px;}
+  .word-view{display:flex; flex-wrap:wrap; gap:14px; margin-top:14px;}
+  .word-chip{
+    font-family:var(--mono); font-size:14px; background:var(--panel-2);
+    border:1px solid var(--border); border-radius:8px; padding:8px 10px;
+    display:flex; align-items:center; gap:2px;
+  }
+  .sym{padding:2px 5px; border-radius:4px;}
+  .sym.merged{background:var(--amber-dim); color:var(--amber); font-weight:650;}
+  .sym.end{color:var(--muted); font-size:11px;}
+  .pair-table{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:13px; margin-top:10px;}
+  .pair-table td{padding:5px 8px; border-bottom:1px solid var(--border);}
+  .pair-table tr.top td{background:var(--amber-dim); color:var(--amber);}
+  .pair-table td.n{text-align:right; color:var(--muted); width:50px;}
+  .ledger{list-style:none; margin:14px 0 0; padding:0; font-family:var(--mono); font-size:13px;
+    max-height:260px; overflow-y:auto;}
+  .ledger li{
+    display:flex; gap:10px; padding:7px 0; border-bottom:1px solid var(--border);
+    align-items:baseline;
+  }
+  .ledger .rank{color:var(--muted); width:34px; flex-shrink:0;}
+  .ledger .rule{color:var(--text);}
+  .ledger .rule .arrow{color:var(--teal); margin:0 6px;}
+  .ledger .freqn{margin-left:auto; color:var(--muted);}
+  .empty{color:var(--muted); font-size:13px; font-style:italic; padding:10px 0;}
+  input[type=text]{
+    font-family:var(--mono); font-size:14px; background:var(--panel-2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:10px 12px; flex:1; min-width:220px;
+  }
+  input[type=text]:focus{outline:none; border-color:var(--teal);}
+  .steps{margin-top:16px; display:flex; flex-direction:column; gap:8px;}
+  .step{
+    font-family:var(--mono); font-size:13px; background:var(--panel-2);
+    border:1px solid var(--border); border-radius:7px; padding:9px 12px;
+    display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;
+  }
+  .step .tag{color:var(--muted); font-size:11px; width:70px; flex-shrink:0;}
+  .final-tokens{display:flex; flex-wrap:wrap; gap:6px; margin-top:14px;}
+  .tok{
+    font-family:var(--mono); font-size:13.5px; background:var(--teal-dim);
+    border:1px solid var(--teal); color:var(--teal); border-radius:6px; padding:5px 9px;
+  }
+  .tok .id{color:var(--muted); font-size:10.5px; display:block; margin-top:2px;}
+  .note{font-size:12.5px; color:var(--muted); margin-top:10px;}
+  .status{font-family:var(--mono); font-size:12.5px; color:var(--muted); margin-top:12px;}
+  .code{
+    font-family:var(--mono); font-size:12.5px; line-height:1.55; color:var(--text);
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:16px 18px; overflow-x:auto; white-space:pre; margin:4px 0 0;
+  }
+  .code .c{color:var(--muted);}
+  .code .kw{color:var(--teal);}
+  .code .fn{color:var(--amber);}
+  code{font-family:var(--mono); background:var(--panel-2); padding:1px 5px; border-radius:4px; font-size:12.5px;}
+  ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:var(--border); border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Tokenizer internals — algorithm, not vocabulary</div>
+  <h1>Byte Pair Encoding, running live</h1>
+  <p class="sub">The tokenizer is trained once on a text sample, frozen into a vocab table + an ordered list of merge rules, then reused unchanged for every input the model ever sees — however large the training corpus was. This runs the real algorithm on a tiny corpus so every step is visible.</p>
+
+  <div class="panel">
+    <h2>1 — Training corpus</h2>
+    <table class="corpus-table" id="corpusTable"></table>
+    <p class="note">Each word starts as individual characters, plus a boundary marker (·) so the tokenizer can tell "est" at a word's end from "est" in the middle of one.</p>
+  </div>
+
+  <div class="panel">
+    <h2>2 — Word segmentation (live)</h2>
+    <div class="word-view" id="wordView"></div>
+  </div>
+
+  <div class="panel">
+    <h2>3 — Adjacent-pair frequencies</h2>
+    <table class="pair-table" id="pairTable"></table>
+    <div class="row" style="margin-top:16px;">
+      <button class="primary" id="stepBtn">Merge next pair</button>
+      <button id="runBtn">Run 8 more merges</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel">
+    <h2>4 — Merge ledger (the frozen rule list)</h2>
+    <ul class="ledger" id="ledger"></ul>
+    <p class="note">This ordered list — not the corpus — is what actually ships with the model. At inference time, encoding new text means replaying these rules in rank order.</p>
+  </div>
+
+  <div class="panel">
+    <h2>5 — Tokenize new text with the learned rules</h2>
+    <div class="row">
+      <input type="text" id="inputText" value="lowest" placeholder="type a word, e.g. newer">
+      <button class="primary" id="tokenizeBtn">Tokenize</button>
+    </div>
+    <div class="steps" id="tokSteps"></div>
+    <div class="final-tokens" id="finalTokens"></div>
+    <p class="note" id="tokNote"></p>
+  </div>
+
+  <div class="panel">
+    <h2>6 — Where the merge rules actually live, on disk</h2>
+    <p class="note" style="margin-top:0;">GPT-2-style tokenizers ship this as two small text files sitting next to the model weights — not inside them. <span style="color:var(--text)">vocab.json</span> maps symbol → id, <span style="color:var(--text)">merges.txt</span> is the ranked rule list, one merge per line, in the exact order they were learned.</p>
+    <pre id="codeBlock" class="code"></pre>
+    <p class="note">The Python below builds those two files from this page's own merge ledger, then re-implements <code>encode()</code>: repeatedly scan the word for the pair with the lowest rank in merges.txt and fuse it, until no learned pair remains. It's the same loop as the "Tokenize new text" step above — just in the form it's actually shipped and run.</p>
+  </div>
+</div>
+
+<script>
+const END = '·';
+const corpus = { low: 5, lower: 2, newer: 4, newest: 6, widest: 3 };
+
+let wordSymbols = {};   // word -> array of current symbols
+let merges = [];        // ordered list of {pair:[a,b], merged, freq}
+const MAX_MERGES = 14;
+
+function resetState(){
+  wordSymbols = {};
+  for (const w in corpus){
+    wordSymbols[w] = w.split('').concat([END]);
+  }
+  merges = [];
+  renderAll();
+}
+
+function getPairStats(){
+  const stats = {}; // key "a|b" -> {a,b,freq}
+  for (const w in corpus){
+    const syms = wordSymbols[w], freq = corpus[w];
+    for (let i=0;i<syms.length-1;i++){
+      const key = syms[i]+'|'+syms[i+1];
+      if (!stats[key]) stats[key] = {a:syms[i], b:syms[i+1], freq:0};
+      stats[key].freq += freq;
+    }
+  }
+  return Object.values(stats).sort((x,y)=>y.freq-x.freq);
+}
+
+function applyMerge(pair){
+  const merged = pair.a+pair.b;
+  for (const w in corpus){
+    const syms = wordSymbols[w];
+    const out = [];
+    let i=0;
+    while (i<syms.length){
+      if (i<syms.length-1 && syms[i]===pair.a && syms[i+1]===pair.b){
+        out.push(merged); i+=2;
+      } else { out.push(syms[i]); i+=1; }
+    }
+    wordSymbols[w] = out;
+  }
+  merges.push({a:pair.a, b:pair.b, merged, freq:pair.freq});
+}
+
+function stepOnce(){
+  const stats = getPairStats();
+  if (!stats.length || merges.length>=MAX_MERGES) return false;
+  applyMerge(stats[0]);
+  return true;
+}
+
+function renderCorpus(){
+  const t = document.getElementById('corpusTable');
+  t.innerHTML = Object.entries(corpus).map(([w,f])=>
+    `<tr><td>${w}</td><td class="freq">×${f}</td></tr>`).join('');
+}
+
+function renderWordView(){
+  const v = document.getElementById('wordView');
+  const lastMerged = merges.length ? merges[merges.length-1].merged : null;
+  v.innerHTML = Object.keys(corpus).map(w=>{
+    const syms = wordSymbols[w];
+    const inner = syms.map(s=>{
+      if (s===END) return `<span class="sym end">${s}</span>`;
+      const cls = s===lastMerged ? 'sym merged' : 'sym';
+      return `<span class="${cls}">${s}</span>`;
+    }).join('');
+    return `<div class="word-chip">${inner}</div>`;
+  }).join('');
+}
+
+function renderPairs(){
+  const t = document.getElementById('pairTable');
+  const stats = getPairStats().slice(0,6);
+  if (!stats.length){
+    t.innerHTML = `<tr><td class="n"></td><td colspan="2" style="color:var(--muted)">No pairs left to merge — every word is a single symbol.</td></tr>`;
+    return;
+  }
+  t.innerHTML = stats.map((s,i)=>
+    `<tr class="${i===0?'top':''}"><td class="n">${s.freq}×</td><td>'${s.a}' + '${s.b}'</td><td>→ ${s.a+s.b}${i===0?'  ← next merge':''}</td></tr>`
+  ).join('');
+}
+
+function renderLedger(){
+  const l = document.getElementById('ledger');
+  if (!merges.length){ l.innerHTML = `<li class="empty">No merges executed yet.</li>`; return; }
+  l.innerHTML = merges.map((m,i)=>
+    `<li><span class="rank">#${i+1}</span><span class="rule">'${m.a}'<span class="arrow">+</span>'${m.b}'<span class="arrow">→</span>${m.merged}</span><span class="freqn">${m.freq}×</span></li>`
+  ).reverse().join('');
+}
+
+function renderStatus(){
+  const s = document.getElementById('status');
+  const stepBtn = document.getElementById('stepBtn');
+  const runBtn = document.getElementById('runBtn');
+  const done = merges.length >= MAX_MERGES || getPairStats().length===0;
+  stepBtn.disabled = done; runBtn.disabled = done;
+  s.textContent = done
+    ? `Training stopped after ${merges.length} merges — vocab is now frozen (demo cap, real tokenizers run tens of thousands of merges).`
+    : `${merges.length} merge${merges.length===1?'':'s'} executed. Vocab size so far: ${vocabSize()}.`;
+}
+
+function vocabSize(){
+  const base = new Set();
+  for (const w in corpus) w.split('').forEach(c=>base.add(c));
+  base.add(END);
+  return base.size + merges.length;
+}
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderCode(){
+  const block = document.getElementById('codeBlock');
+  const base = new Set();
+  for (const w in corpus) w.split('').forEach(c=>base.add(c));
+  base.add(END);
+  const baseList = Array.from(base).sort();
+
+  const mergesLines = merges.length
+    ? merges.map(m=>`${m.a} ${m.b}`).join('\n')
+    : '(no merges trained yet — click "Merge next pair" above)';
+
+  const vocabPreview = baseList.slice(0,6).map((s,i)=>`  "${s}": ${i}`).join(',\n')
+    + (baseList.length>6 ? ',\n  ...' : '')
+    + (merges.length ? `,\n${merges.map((m,i)=>`  "${m.merged}": ${baseList.length+i}`).join(',\n')}` : '');
+
+  const py =
+`<span class="c"># --- vocab.json  (symbol -> id) ---</span>
+<span class="c">#</span> {
+${vocabPreview || '  ...'}
+<span class="c">#</span> }
+
+<span class="c"># --- merges.txt  (one merge per line, RANK = LINE NUMBER) ---</span>
+<span class="c">#</span> ${mergesLines.split('\n').join('\n<span class="c">#</span> ')}
+
+<span class="kw">def</span> <span class="fn">load_merges</span>(path):
+    <span class="c"># rank == position in the file. Never changes after training.</span>
+    <span class="kw">with</span> open(path) <span class="kw">as</span> f:
+        <span class="kw">return</span> [<span class="kw">tuple</span>(line.split()) <span class="kw">for</span> line <span class="kw">in</span> f.read().splitlines()]
+
+<span class="kw">def</span> <span class="fn">encode</span>(word, merges):
+    <span class="c"># merges: ordered list of (a, b) tuples, index = learned rank</span>
+    symbols = <span class="kw">list</span>(word) + [<span class="c">"${END}"</span>]
+    <span class="kw">while</span> <span class="kw">len</span>(symbols) &gt; 1:
+        <span class="c"># find the adjacent pair with the LOWEST rank (earliest learned)</span>
+        ranked = [(merges.index((symbols[i], symbols[i+1])), i)
+                  <span class="kw">for</span> i <span class="kw">in</span> <span class="kw">range</span>(<span class="kw">len</span>(symbols)-1)
+                  <span class="kw">if</span> (symbols[i], symbols[i+1]) <span class="kw">in</span> merges]
+        <span class="kw">if</span> <span class="kw">not</span> ranked:
+            <span class="kw">break</span>  <span class="c"># no learned pair applies &mdash; done</span>
+        _, i = <span class="kw">min</span>(ranked)
+        symbols[i:i+2] = [symbols[i] + symbols[i+1]]
+    <span class="kw">return</span> symbols
+
+<span class="c"># merges.index(pair) is what makes rank == line number matter:</span>
+<span class="c"># a merge learned on line 3 always outranks one learned on line 40,</span>
+<span class="c"># no matter what order pairs happen to appear in new text.</span>
+
+merges = load_merges(<span class="c">"merges.txt"</span>)
+<span class="kw">print</span>(encode(<span class="c">"${document.getElementById('inputText')?document.getElementById('inputText').value.trim()||'lowest':'lowest'}"</span>, merges))`;
+
+  block.innerHTML = py;
+}
+
+function renderAll(){
+  renderCorpus(); renderWordView(); renderPairs(); renderLedger(); renderStatus(); renderCode();
+}
+
+document.getElementById('stepBtn').addEventListener('click', ()=>{ stepOnce(); renderAll(); });
+document.getElementById('runBtn').addEventListener('click', ()=>{
+  for (let i=0;i<8;i++){ if(!stepOnce()) break; }
+  renderAll();
+});
+document.getElementById('resetBtn').addEventListener('click', resetState);
+
+// --- Tokenizing new text with the learned merge ranks ---
+function tokenize(word){
+  let syms = word.toLowerCase().split('').concat([END]);
+  const steps = [];
+  steps.push({label:'start', syms:[...syms]});
+  let changed = true;
+  while (changed){
+    changed = false;
+    let bestRank = Infinity, bestIdx = -1, bestMerge = null;
+    for (let i=0;i<syms.length-1;i++){
+      const rank = merges.findIndex(m=>m.a===syms[i] && m.b===syms[i+1]);
+      if (rank!==-1 && rank<bestRank){ bestRank=rank; bestIdx=i; bestMerge=merges[rank]; }
+    }
+    if (bestIdx!==-1){
+      syms = syms.slice(0,bestIdx).concat([bestMerge.merged]).concat(syms.slice(bestIdx+2));
+      steps.push({label:`rule #${bestRank+1}`, syms:[...syms], applied:`'${bestMerge.a}'+'${bestMerge.b}'→${bestMerge.merged}`});
+      changed = true;
+    }
+  }
+  return {syms, steps};
+}
+
+function vocabIdOf(sym){
+  // deterministic id: base chars alphabetically, then merges by rank
+  const base = new Set();
+  for (const w in corpus) w.split('').forEach(c=>base.add(c));
+  base.add(END);
+  const baseList = Array.from(base).sort();
+  const idx = baseList.indexOf(sym);
+  if (idx!==-1) return idx;
+  const mIdx = merges.findIndex(m=>m.merged===sym);
+  return mIdx!==-1 ? baseList.length+mIdx : -1;
+}
+
+document.getElementById('tokenizeBtn').addEventListener('click', ()=>{
+  const raw = document.getElementById('inputText').value.trim();
+  const stepsDiv = document.getElementById('tokSteps');
+  const finalDiv = document.getElementById('finalTokens');
+  const note = document.getElementById('tokNote');
+  if (!raw){ stepsDiv.innerHTML=''; finalDiv.innerHTML=''; note.textContent=''; return; }
+  const {syms, steps} = tokenize(raw);
+  stepsDiv.innerHTML = steps.map(s=>
+    `<div class="step"><span class="tag">${s.label}</span><span>${s.syms.join(' · ')}</span>${s.applied?`<span style="color:var(--amber)">applied ${s.applied}</span>`:''}</div>`
+  ).join('');
+  finalDiv.innerHTML = syms.map(s=>{
+    const id = vocabIdOf(s);
+    return `<div class="tok">${s}<span class="id">id ${id===-1?'?':id}</span></div>`;
+  }).join('');
+  note.textContent = `"${raw}" → ${syms.length} token${syms.length===1?'':'s'}. The algorithm applied learned merge rules in rank order until none matched — same procedure the real tokenizer runs on every input, regardless of how much text it was trained on.`;
+  renderCode();
+});
+
+resetState();
+tokenize('lowest'); // warm
+document.getElementById('tokenizeBtn').click();
+</script>
+</body>
+</html>
