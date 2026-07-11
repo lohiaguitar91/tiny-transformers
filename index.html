@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>tiny-transformers — interactive tech explainers</title>
+<style>
+  :root{
+    --bg:#0B0F17; --panel:#121926; --border:#232E3F;
+    --text:#E7E9EE; --muted:#8792A2; --amber:#E8A33D; --teal:#6FA8C9;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+       min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;}
+  .wrap{max-width:640px; width:100%;}
+  .eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); margin-bottom:10px;}
+  h1{font-size:26px; margin:0 0 10px; font-weight:650;}
+  p.sub{color:var(--muted); font-size:14.5px; margin:0 0 32px; max-width:520px;}
+  .card{
+    display:block; background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:20px 22px; margin-bottom:14px; text-decoration:none; color:var(--text); transition:.15s;
+  }
+  .card:hover{border-color:var(--amber);}
+  .card .name{font-family:var(--mono); font-size:15px; color:var(--amber); font-weight:650;}
+  .card .desc{font-size:13.5px; color:var(--muted); margin-top:6px; line-height:1.5;}
+  .footer{margin-top:28px; font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .footer a{color:var(--teal);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Interactive tech explainers</div>
+  <h1>tiny-transformers</h1>
+  <p class="sub">Small, self-contained demos that run the real algorithms behind LLMs — on numbers small enough to actually read.</p>
+
+  <a class="card" href="./bpe-tokenizer/">
+    <div class="name">bpe-tokenizer</div>
+    <div class="desc">Train a real Byte Pair Encoding tokenizer live on a toy corpus, watch the merge ledger build step by step, then tokenize any word with the learned rules — plus the actual Python storage/encode format.</div>
+  </a>
+
+  <a class="card" href="./how-networks-learn/">
+    <div class="name">how-networks-learn</div>
+    <div class="desc">Architecture terms (hidden_dim, layers, heads, vocab_size) as live sliders, plus a real 2-layer forward + backward pass — run backprop yourself and watch a prediction get trained from scratch.</div>
+  </a>
+
+  <div class="footer">
+    <a href="https://github.com/lohiaguitar91/tiny-transformers">source on GitHub</a>
+  </div>
+</div>
+</body>
+</html>
