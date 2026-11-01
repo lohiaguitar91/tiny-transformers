@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Pocket Arcade</title>
+<meta name="description" content="A tiny retro handheld with three games: Snake, Bricks and Blocks. No install, no network, no dependencies: one HTML file that plays offline.">
+<meta name="theme-color" content="#17161d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pocket Arcade">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E %3Crect width='64' height='64' rx='14' fill='%2317161d'/%3E %3Crect x='13' y='6' width='38' height='52' rx='5' fill='%23d8d3c6'/%3E %3Crect x='13' y='6' width='38' height='52' rx='5' fill='none' stroke='%238e8878' stroke-width='1'/%3E %3Crect x='17' y='10' width='30' height='26' rx='3' fill='%2334323c'/%3E %3Crect x='20' y='13' width='24' height='20' rx='1' fill='%239bbc0f'/%3E %3Cg fill='%230f380f'%3E %3Crect x='22' y='27' width='4' height='4'/%3E%3Crect x='26' y='27' width='4' height='4'/%3E%3Crect x='30' y='27' width='4' height='4'/%3E %3Crect x='30' y='23' width='4' height='4'/%3E%3Crect x='30' y='19' width='4' height='4'/%3E%3Crect x='34' y='19' width='4' height='4'/%3E %3Crect x='38' y='19' width='4' height='4'/%3E %3Crect x='39' y='28' width='3' height='3'/%3E %3C/g%3E %3Crect x='18' y='40' width='4' height='12' rx='1' fill='%234a4852'/%3E %3Crect x='14' y='44' width='12' height='4' rx='1' fill='%234a4852'/%3E %3Ccircle cx='38' cy='48' r='3.3' fill='%239c2f66'/%3E %3Ccircle cx='45' cy='44' r='3.3' fill='%239c2f66'/%3E %3Crect x='26' y='54' width='5' height='1.6' rx='.8' fill='%236a6773'/%3E %3Crect x='33' y='54' width='5' height='1.6' rx='.8' fill='%236a6773'/%3E %3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+html{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+/* Layout: a one-screen handheld. Portrait stacks screen over D-pad/buttons; landscape puts the controls beside the screen. */
+:root{
+  --desk:#17161d; --desk-2:#23212c;
+  --shell:#d8d3c6; --shell-2:#c6c0b1; --shell-edge:#8e8878; --shell-shine:rgba(255,255,255,.55);
+  --label:#5c5868; --label-2:#7b7788;
+  --bezel:#34323c; --bezel-2:#45434e; --bezel-line:#5d5a69; --bezel-text:#aaa6b8;
+  --dpad:#4a4852; --dpad-2:#5e5c67; --dpad-edge:#2b2a31;
+  --ab:#9c2f66; --ab-2:#c04a86; --ab-edge:#5f183d; --ab-text:#f6dbe9;
+  --pill:#6a6773; --pill-2:#86838f; --pill-edge:#3d3b45;
+  --led:#f0a23a; --led-glow:rgba(240,162,58,.75); --led-on:#44d476; --led-on-glow:rgba(68,212,118,.75);
+  --lcd:#8fb63a;
+  --toast-bg:#201f27; --toast-fg:#eae7f2;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --ctl:clamp(118px,33vw,156px);
+  --gap:10px;
+  color-scheme:dark;
+}
+[data-shell="teal"]{--shell:#4fb3b3;--shell-2:#3e9b9b;--shell-edge:#1f5f5f;--label:#0f3c3c;--label-2:#1b5555;--ab:#f0d13b;--ab-2:#ffe66a;--ab-edge:#8a7210;--ab-text:#4a3c00}
+[data-shell="berry"]{--shell:#c43a5f;--shell-2:#a62d4e;--shell-edge:#5e1328;--label:#f7d6df;--label-2:#f1b7c6;--ab:#2b2b33;--ab-2:#4a4a55;--ab-edge:#141418;--ab-text:#e8e8f0}
+[data-shell="black"]{--shell:#2a2a31;--shell-2:#1f1f25;--shell-edge:#0d0d10;--label:#a9a7b3;--label-2:#8c8a96;--ab:#d9d9e0;--ab-2:#f2f2f6;--ab-edge:#8e8e98;--ab-text:#2a2a31;--shell-shine:rgba(255,255,255,.18)}
+[data-shell="atomic"]{--shell:#8a62d6;--shell-2:#6f4bb8;--shell-edge:#3a2470;--label:#ece4ff;--label-2:#d8ccff;--ab:#32e0b4;--ab-2:#6ff5d0;--ab-edge:#137a5f;--ab-text:#0b3b2d}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+html{overflow:hidden}
+body{
+  background:radial-gradient(120% 90% at 50% 0%,var(--desk-2),var(--desk) 70%);
+  color:#e8e6f0;font-family:var(--font);
+  overflow:hidden;overscroll-behavior:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
+  touch-action:none;
+  display:flex;align-items:center;justify-content:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:8px;
+}
+
+.shell{
+  position:relative;width:min(100%,440px);height:100%;max-height:960px;
+  background:
+    linear-gradient(165deg,var(--shell-shine) 0%,rgba(255,255,255,0) 30%),
+    linear-gradient(180deg,var(--shell) 0%,var(--shell-2) 100%);
+  border-radius:22px 22px 60px 22px;
+  box-shadow:0 2px 0 var(--shell-edge),0 18px 40px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.35);
+  padding:12px 12px 14px;
+  display:grid;gap:var(--gap);
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto auto 1fr auto;
+  grid-template-areas:"bezel bezel" "brand brand" "dpad ab" "pills pills";
+  overflow:hidden;
+}
+.shell::before{ /* two moulded lines along the top, like a real handheld */
+  content:"";position:absolute;left:0;right:0;top:0;height:9px;pointer-events:none;
+  background:repeating-linear-gradient(180deg,transparent 0 3px,rgba(0,0,0,.08) 3px 4px);
+  border-radius:22px 22px 0 0;
+}
+
+.bezel{
+  grid-area:bezel;justify-self:center;
+  background:linear-gradient(180deg,var(--bezel-2),var(--bezel));
+  border-radius:12px 12px 36px 12px;
+  padding:8px 10px 12px;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.45),0 1px 0 rgba(255,255,255,.25);
+  display:grid;grid-template-rows:auto auto;gap:6px;justify-items:center;
+  width:100%;
+}
+.bezel-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;width:100%;min-height:16px;gap:8px}
+.bezel-title{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--bezel-text);font-weight:600;white-space:nowrap}
+.led-wrap{display:flex;align-items:center;gap:6px;justify-self:start;cursor:pointer;padding:2px 4px 2px 0}
+.led{width:8px;height:8px;border-radius:50%;background:var(--led);box-shadow:0 0 6px 1px var(--led-glow);transition:background .3s,box-shadow .3s}
+.led.off{background:#3a3842;box-shadow:none}
+.led.on{background:var(--led-on);box-shadow:0 0 7px 2px var(--led-on-glow)}
+.led-text{font-size:8px;letter-spacing:.14em;color:var(--bezel-text);text-transform:uppercase;white-space:nowrap}
+.bezel-right{justify-self:end;font-size:9px;letter-spacing:.14em;color:var(--bezel-text);text-transform:uppercase;white-space:nowrap;cursor:pointer;padding:2px 0 2px 4px}
+.bezel-right.muted{opacity:.4;text-decoration:line-through}
+.screen{position:relative;width:320px;height:288px;background:#000;border-radius:4px;box-shadow:inset 0 0 0 2px #111,inset 0 0 12px rgba(0,0,0,.8);overflow:hidden;touch-action:none}
+.screen canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;background:#9bbc0f}
+.screen .lcd{position:absolute;inset:0;pointer-events:none;opacity:.22;
+  background-image:linear-gradient(90deg,rgba(0,0,0,.6) 1px,transparent 1px),linear-gradient(180deg,rgba(0,0,0,.6) 1px,transparent 1px);
+  background-size:calc(100%/160) calc(100%/144);mix-blend-mode:multiply}
+.screen .lcd.off{display:none}
+.screen .glare{position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,rgba(255,255,255,.14) 0%,rgba(255,255,255,0) 40%)}
+
+.brand{grid-area:brand;justify-self:center;color:var(--label);font-size:15px;letter-spacing:.02em;font-style:italic;font-weight:500;line-height:1;padding:2px 0;cursor:pointer}
+.brand b{font-weight:800;font-style:italic;letter-spacing:.08em;margin-left:3px}
+
+/* D-pad */
+.dpad{grid-area:dpad;align-self:center;justify-self:start;position:relative;width:var(--ctl);height:var(--ctl);touch-action:none;cursor:pointer;margin-left:2%}
+.dpad .arm{position:absolute;background:linear-gradient(180deg,var(--dpad-2),var(--dpad));border-radius:7px;box-shadow:0 3px 0 var(--dpad-edge),0 6px 10px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.14)}
+.dpad .arm.v{left:34%;top:0;width:32%;height:100%}
+.dpad .arm.h{top:34%;left:0;height:32%;width:100%;box-shadow:0 3px 0 var(--dpad-edge),0 6px 10px rgba(0,0,0,.0),inset 0 1px 0 rgba(255,255,255,.14)}
+.dpad .hub{position:absolute;left:38%;top:38%;width:24%;height:24%;border-radius:50%;background:radial-gradient(circle at 50% 40%,var(--dpad),var(--dpad-edge))}
+.dpad .arrow{position:absolute;width:0;height:0;border:7px solid transparent;opacity:.55;pointer-events:none}
+.dpad .arrow.up{left:calc(50% - 7px);top:9%;border-bottom-color:var(--dpad-edge);border-top:0}
+.dpad .arrow.down{left:calc(50% - 7px);bottom:9%;border-top-color:var(--dpad-edge);border-bottom:0}
+.dpad .arrow.left{top:calc(50% - 7px);left:9%;border-right-color:var(--dpad-edge);border-left:0}
+.dpad .arrow.right{top:calc(50% - 7px);right:9%;border-left-color:var(--dpad-edge);border-right:0}
+.dpad .press{position:absolute;background:rgba(255,255,255,.18);border-radius:7px;opacity:0;pointer-events:none;transition:opacity .05s}
+.dpad .press.up{left:34%;top:0;width:32%;height:34%}
+.dpad .press.down{left:34%;bottom:0;width:32%;height:34%}
+.dpad .press.left{top:34%;left:0;height:32%;width:34%}
+.dpad .press.right{top:34%;right:0;height:32%;width:34%}
+.dpad.p-up .press.up,.dpad.p-down .press.down,.dpad.p-left .press.left,.dpad.p-right .press.right{opacity:1}
+
+/* A / B */
+.ab{grid-area:ab;align-self:center;justify-self:end;display:flex;gap:14px;align-items:flex-end;transform:rotate(-22deg);margin-right:4%;padding-bottom:6px}
+.abtn-wrap{display:flex;flex-direction:column;align-items:center;gap:5px}
+.abtn-wrap.a{margin-bottom:28px}
+.abtn{width:calc(var(--ctl)*.44);height:calc(var(--ctl)*.44);border-radius:50%;border:0;
+  background:radial-gradient(circle at 40% 35%,var(--ab-2),var(--ab) 65%);
+  box-shadow:0 4px 0 var(--ab-edge),0 8px 12px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35);
+  touch-action:none;cursor:pointer;transition:transform .04s,box-shadow .04s}
+.abtn.pressed,.abtn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ab-edge),0 2px 4px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.2)}
+.abtn-wrap span{font-size:13px;font-weight:800;color:var(--label);letter-spacing:.05em;font-style:italic}
+
+/* Select / Start */
+.pills{grid-area:pills;justify-self:center;display:flex;gap:26px;padding:2px 0 4px;transform:rotate(-22deg) translateY(-2px)}
+.pill-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
+.pill{width:46px;height:14px;border-radius:8px;border:0;background:linear-gradient(180deg,var(--pill-2),var(--pill));
+  box-shadow:0 3px 0 var(--pill-edge),0 5px 8px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.25);touch-action:none;cursor:pointer;transition:transform .04s,box-shadow .04s}
+.pill.pressed,.pill:active{transform:translateY(2px);box-shadow:0 1px 0 var(--pill-edge),inset 0 1px 0 rgba(255,255,255,.15)}
+.pill-wrap span{font-size:8px;font-weight:800;letter-spacing:.16em;color:var(--label)}
+
+/* speaker grille */
+.grille{position:absolute;right:16px;bottom:18px;width:72px;height:46px;transform:rotate(-22deg);pointer-events:none;
+  background:repeating-linear-gradient(90deg,var(--shell-edge) 0 3px,transparent 3px 12px);opacity:.55;border-radius:4px}
+
+/* toast */
+.toast{position:absolute;left:50%;top:14px;transform:translate(-50%,-30px);background:var(--toast-bg);color:var(--toast-fg);
+  font-size:12px;padding:8px 12px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:88%;text-align:center;line-height:1.35;z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* keyboard hint (desktop only) */
+.kbd-hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);font-size:11px;color:#8d8a9c;letter-spacing:.04em;pointer-events:none;white-space:nowrap;display:none}
+@media (hover:hover) and (pointer:fine) and (min-height:720px){.kbd-hint{display:block}body{padding-bottom:34px}}
+
+.abtn:focus-visible,.pill:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+/* Landscape phones: controls flank the screen */
+@media (orientation:landscape) and (max-height:560px){
+  body{padding-block:4px}
+  .shell{width:100%;max-width:900px;border-radius:24px;padding:8px 14px;
+    grid-template-columns:auto 1fr auto;grid-template-rows:1fr auto;
+    grid-template-areas:"dpad bezel ab" "dpad pills ab";gap:6px 10px}
+  .bezel{align-self:center;padding:6px 8px 8px;border-radius:10px}
+  .brand{display:none}
+  .dpad{justify-self:center;margin:0;--ctl:clamp(110px,30vh,150px)}
+  .ab{justify-self:center;margin:0;--ctl:clamp(110px,30vh,150px)}
+  .pills{padding:0;transform:rotate(0) translateY(0)}
+  .grille{right:12px;bottom:8px;width:54px;height:30px}
+  .shell::before{display:none}
+}
+/* narrow phones: trim the plastic so the LCD gets every pixel it can */
+@media (max-width:430px) and (orientation:portrait){
+  .shell{padding:8px 8px 12px}
+  .bezel{padding:6px 6px 10px;border-radius:10px 10px 30px 10px}
+}
+@media (prefers-reduced-motion:reduce){.toast,.abtn,.pill,.led{transition:none}}
+</style>
+</head>
+<body>
+<div class="shell" id="shell" data-shell="gray">
+  <div class="bezel">
+    <div class="bezel-top">
+      <div class="led-wrap" id="ledWrap" title="Offline status">
+        <span class="led off" id="led"></span><span class="led-text" id="ledText">POWER</span>
+      </div>
+      <div class="bezel-title">Pocket Arcade</div>
+      <div class="bezel-right" id="sndBtn" title="Toggle sound">&#9834; sound</div>
+    </div>
+    <div class="screen" id="screenWrap">
+      <canvas id="screen" width="160" height="144" aria-label="Game screen"></canvas>
+      <div class="lcd" id="lcd"></div>
+      <div class="glare"></div>
+    </div>
+  </div>
+
+  <div class="brand" id="brand">pocket<b>ARCADE</b></div>
+
+  <div class="dpad" id="dpad" aria-label="Directional pad">
+    <div class="arm v"></div><div class="arm h"></div><div class="hub"></div>
+    <span class="arrow up"></span><span class="arrow down"></span><span class="arrow left"></span><span class="arrow right"></span>
+    <span class="press up"></span><span class="press down"></span><span class="press left"></span><span class="press right"></span>
+  </div>
+
+  <div class="ab">
+    <div class="abtn-wrap b"><button class="abtn" data-key="b" aria-label="B button"></button><span>B</span></div>
+    <div class="abtn-wrap a"><button class="abtn" data-key="a" aria-label="A button"></button><span>A</span></div>
+  </div>
+
+  <div class="pills">
+    <div class="pill-wrap"><button class="pill" data-key="select" aria-label="Select"></button><span>SELECT</span></div>
+    <div class="pill-wrap"><button class="pill" data-key="start" aria-label="Start"></button><span>START</span></div>
+  </div>
+
+  <div class="grille"></div>
+  <div class="toast" id="toast"></div>
+</div>
+<div class="kbd-hint">Keyboard: arrows / WASD &middot; Z = A &middot; X = B &middot; Enter = Start &middot; Shift = Select &middot; M = mute</div>
+<script>
+'use strict';
+/* ========================================================================
+   POCKET ARCADE — a tiny handheld console in one file.
+   Screen: 160x144 logical pixels, 4-shade palette, bitmap font, chip sounds.
+   ======================================================================== */
+const W = 160, H = 144;
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const rnd = (n) => Math.floor(Math.random() * n);
+const pad = (n, w) => String(n).padStart(w, '0');
+
+/* ---------- persistent settings & scores (per-device convenience) ---------- */
+const Store = {
+  get(k, d) { try { const v = localStorage.getItem('pa.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('pa.' + k, JSON.stringify(v)); } catch (e) {} },
+  best(key) { return this.get('best.' + key, 0) | 0; },
+  setBest(key, v) { this.set('best.' + key, v | 0); },
+};
+
+/* ---------- palettes: index 0 = darkest ... 3 = lightest ---------- */
+const PALETTES = {
+  GREEN: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'],
+  GRAY:  ['#1c1c22', '#5b5b66', '#a9a9b4', '#e9e9ee'],
+  AMBER: ['#2b1200', '#7a3d00', '#d07a10', '#ffcf5c'],
+  BLUE:  ['#0b1a33', '#1f4f82', '#4ea2da', '#c6ecff'],
+  RED:   ['#1e0000', '#6e0a0a', '#d42a2a', '#ff7a7a'],
+};
+const PALETTE_NAMES = Object.keys(PALETTES);
+
+/* ---------- 5x7 bitmap font ---------- */
+const FONT_SRC = {
+A:'.###.|#...#|#...#|#####|#...#|#...#|#...#',B:'####.|#...#|#...#|####.|#...#|#...#|####.',C:'.###.|#...#|#....|#....|#....|#...#|.###.',
+D:'####.|#...#|#...#|#...#|#...#|#...#|####.',E:'#####|#....|#....|####.|#....|#....|#####',F:'#####|#....|#....|####.|#....|#....|#....',
+G:'.###.|#...#|#....|#.###|#...#|#...#|.####',H:'#...#|#...#|#...#|#####|#...#|#...#|#...#',I:'.###.|..#..|..#..|..#..|..#..|..#..|.###.',
+J:'..###|...#.|...#.|...#.|...#.|#..#.|.##..',K:'#...#|#..#.|#.#..|##...|#.#..|#..#.|#...#',L:'#....|#....|#....|#....|#....|#....|#####',
+M:'#...#|##.##|#.#.#|#.#.#|#...#|#...#|#...#',N:'#...#|#...#|##..#|#.#.#|#..##|#...#|#...#',O:'.###.|#...#|#...#|#...#|#...#|#...#|.###.',
+P:'####.|#...#|#...#|####.|#....|#....|#....',Q:'.###.|#...#|#...#|#...#|#.#.#|#..#.|.##.#',R:'####.|#...#|#...#|####.|#.#..|#..#.|#...#',
+S:'.####|#....|#....|.###.|....#|....#|####.',T:'#####|..#..|..#..|..#..|..#..|..#..|..#..',U:'#...#|#...#|#...#|#...#|#...#|#...#|.###.',
+V:'#...#|#...#|#...#|#...#|#...#|.#.#.|..#..',W:'#...#|#...#|#...#|#.#.#|#.#.#|##.##|#...#',X:'#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#',
+Y:'#...#|#...#|.#.#.|..#..|..#..|..#..|..#..',Z:'#####|....#|...#.|..#..|.#...|#....|#####',
+'0':'.###.|#...#|#..##|#.#.#|##..#|#...#|.###.','1':'..#..|.##..|..#..|..#..|..#..|..#..|.###.','2':'.###.|#...#|....#|...#.|..#..|.#...|#####',
+'3':'#####|...#.|..#..|...#.|....#|#...#|.###.','4':'...#.|..##.|.#.#.|#..#.|#####|...#.|...#.','5':'#####|#....|####.|....#|....#|#...#|.###.',
+'6':'..##.|.#...|#....|####.|#...#|#...#|.###.','7':'#####|....#|...#.|..#..|.#...|.#...|.#...','8':'.###.|#...#|#...#|.###.|#...#|#...#|.###.',
+'9':'.###.|#...#|#...#|.####|....#|...#.|.##..',' ':'.....|.....|.....|.....|.....|.....|.....',
+'.':'.....|.....|.....|.....|.....|.##..|.##..',',':'.....|.....|.....|.....|.##..|..#..|.#...','!':'..#..|..#..|..#..|..#..|..#..|.....|..#..',
+'?':'.###.|#...#|....#|...#.|..#..|.....|..#..',':':'.....|.##..|.##..|.....|.##..|.##..|.....','-':'.....|.....|.....|#####|.....|.....|.....',
+'+':'.....|..#..|..#..|#####|..#..|..#..|.....','=':'.....|.....|#####|.....|#####|.....|.....','/':'.....|....#|...#.|..#..|.#...|#....|.....',
+'(':'...#.|..#..|.#...|.#...|.#...|..#..|...#.',')':'.#...|..#..|...#.|...#.|...#.|..#..|.#...',"'":'..#..|..#..|.#...|.....|.....|.....|.....',
+'"':'.#.#.|.#.#.|.....|.....|.....|.....|.....','<':'...#.|..#..|.#...|#....|.#...|..#..|...#.','>':'.#...|..#..|...#.|....#|...#.|..#..|.#...',
+'*':'.....|.#.#.|..#..|#####|..#..|.#.#.|.....','%':'##...|##..#|...#.|..#..|.#...|#..##|...##','#':'.#.#.|.#.#.|#####|.#.#.|#####|.#.#.|.#.#.',
+'&':'.##..|#..#.|#..#.|.##..|#.#.#|#..#.|.##.#','_':'.....|.....|.....|.....|.....|.....|#####','♥':'.....|.#.#.|#####|#####|.###.|..#..|.....',
+'▶':'#....|##...|###..|####.|###..|##...|#....','◀':'....#|...##|..###|.####|..###|...##|....#','←':'.....|..#..|.#...|#####|.#...|..#..|.....',
+'→':'.....|..#..|...#.|#####|...#.|..#..|.....','↑':'..#..|.###.|#.#.#|..#..|..#..|..#..|..#..','↓':'..#..|..#..|..#..|..#..|#.#.#|.###.|..#..',
+'■':'#####|#####|#####|#####|#####|#####|#####','◆':'..#..|.###.|#####|#####|#####|.###.|..#..','·':'.....|.....|.....|..#..|.....|.....|.....',
+'▲':'.....|..#..|.###.|#####|.....|.....|.....','▼':'.....|.....|.....|#####|.###.|..#..|.....','©':'.###.|#...#|#.##.|#.#..|#.##.|#...#|.###.',
+};
+const FONT_CHARS = Object.keys(FONT_SRC);
+const FONT_INDEX = {}; FONT_CHARS.forEach((c, i) => FONT_INDEX[c] = i);
+
+/* ---------- renderer ---------- */
+const R = {
+  cv: null, ctx: null, pal: PALETTES.GREEN, sheets: [], patterns: {},
+  shakeX: 0, shakeY: 0,
+  init(canvas) {
+    this.cv = canvas; this.ctx = canvas.getContext('2d', { alpha: false });
+    this.ctx.imageSmoothingEnabled = false;
+    this.setPalette(this.pal);
+  },
+  setPalette(pal) {
+    this.pal = pal; this.patterns = {};
+    this.sheets = pal.map((color) => {
+      const c = document.createElement('canvas'); c.width = FONT_CHARS.length * 6; c.height = 7;
+      const x = c.getContext('2d'); x.fillStyle = color;
+      FONT_CHARS.forEach((ch, i) => {
+        const rows = FONT_SRC[ch].split('|');
+        for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if (rows[r][q] === '#') x.fillRect(i * 6 + q, r, 1, 1);
+      });
+      return c;
+    });
+    if (this.cv) this.cv.style.background = pal[3];
+  },
+  clear(c = 3) { this.ctx.fillStyle = this.pal[c]; this.ctx.fillRect(0, 0, W, H); },
+  rect(x, y, w, h, c) { this.ctx.fillStyle = this.pal[c]; this.ctx.fillRect(x | 0, y | 0, w | 0, h | 0); },
+  px(x, y, c) { this.ctx.fillStyle = this.pal[c]; this.ctx.fillRect(x | 0, y | 0, 1, 1); },
+  frame(x, y, w, h, c) { this.rect(x, y, w, 1, c); this.rect(x, y + h - 1, w, 1, c); this.rect(x, y, 1, h, c); this.rect(x + w - 1, y, 1, h, c); },
+  /* rounded panel with 1px corners knocked out, like a dialog box */
+  box(x, y, w, h, fill, border) {
+    this.rect(x + 1, y, w - 2, h, fill); this.rect(x, y + 1, w, h - 2, fill);
+    if (border != null) { this.rect(x + 1, y, w - 2, 1, border); this.rect(x + 1, y + h - 1, w - 2, 1, border); this.rect(x, y + 1, 1, h - 2, border); this.rect(x + w - 1, y + 1, 1, h - 2, border); }
+  },
+  dither(x, y, w, h, c1, c2) {
+    const key = c1 + ':' + c2; let p = this.patterns[key];
+    if (!p) { const pc = document.createElement('canvas'); pc.width = 2; pc.height = 2; const px = pc.getContext('2d'); px.fillStyle = this.pal[c1]; px.fillRect(0, 0, 2, 2); px.fillStyle = this.pal[c2]; px.fillRect(1, 0, 1, 1); px.fillRect(0, 1, 1, 1); p = this.patterns[key] = this.ctx.createPattern(pc, 'repeat'); }
+    this.ctx.fillStyle = p; this.ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
+  },
+  textW(s, scale = 1) { return s.length * 6 * scale - scale; },
+  text(s, x, y, c = 0, scale = 1) {
+    s = String(s).toUpperCase(); const sheet = this.sheets[c]; x |= 0; y |= 0;
+    for (let i = 0; i < s.length; i++) {
+      const gi = FONT_INDEX[s[i]]; if (gi == null) { x += 6 * scale; continue; }
+      this.ctx.drawImage(sheet, gi * 6, 0, 5, 7, x, y, 5 * scale, 7 * scale); x += 6 * scale;
+    }
+    return x;
+  },
+  textC(s, y, c = 0, scale = 1, cx = W / 2) { return this.text(s, Math.round(cx - this.textW(s, scale) / 2), y, c, scale); },
+  textR(s, rx, y, c = 0, scale = 1) { return this.text(s, rx - this.textW(s, scale), y, c, scale); },
+  /* sprite: array of strings, chars '0'-'3' = palette index, anything else transparent */
+  sprite(rows, x, y, remap) {
+    x |= 0; y |= 0;
+    for (let r = 0; r < rows.length; r++) { const row = rows[r]; for (let q = 0; q < row.length; q++) { const ch = row[q]; if (ch >= '0' && ch <= '3') { let c = ch.charCodeAt(0) - 48; if (remap) c = remap[c]; this.rect(x + q, y + r, 1, 1, c); } } }
+  },
+};
+
+/* ---------- chip-tune synth ---------- */
+const Sfx = {
+  ctx: null, master: null, enabled: Store.get('sound', true), unlocked: false,
+  init() {
+    if (this.ctx) return;
+    try { const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = 0.16; this.master.connect(this.ctx.destination); } catch (e) { this.ctx = null; }
+  },
+  unlock() { this.init(); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); this.unlocked = true; },
+  suspend() { if (this.ctx && this.ctx.state === 'running') this.ctx.suspend().catch(() => {}); },
+  resume() { if (this.unlocked && this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); },
+  setEnabled(v) { this.enabled = !!v; Store.set('sound', this.enabled); },
+  tone(freq, dur = 0.08, type = 'square', vol = 1, when = 0, slideTo = null) {
+    if (!this.enabled || !this.ctx) return;
+    const t0 = this.ctx.currentTime + when, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t0); if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.004); g.gain.setValueAtTime(vol, t0 + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(this.master); o.start(t0); o.stop(t0 + dur + 0.02);
+  },
+  noise(dur = 0.2, vol = 0.5, when = 0) {
+    if (!this.enabled || !this.ctx) return;
+    const n = Math.floor(this.ctx.sampleRate * dur), buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = this.ctx.createBufferSource(), g = this.ctx.createGain(); s.buffer = buf; g.gain.value = vol; s.connect(g); g.connect(this.master); s.start(this.ctx.currentTime + when);
+  },
+  seq(notes, step = 0.07, type = 'square', vol = 0.8) { notes.forEach((f, i) => { if (f) this.tone(f, step * 0.95, type, vol, i * step); }); },
+  blip() { this.tone(900, 0.035, 'square', 0.45); },
+  confirm() { this.seq([660, 990], 0.06); },
+  back() { this.seq([520, 390], 0.06, 'square', 0.6); },
+  boot() { this.tone(784, 0.12, 'square', 0.7); this.tone(1568, 0.5, 'square', 0.7, 0.12); },
+  power() { this.tone(220, 0.25, 'triangle', 0.9, 0, 440); },
+  pause() { this.seq([440, 0, 440], 0.05, 'square', 0.6); },
+  eat() { this.seq([620, 930], 0.045); },
+  bonus() { this.seq([523, 659, 784, 1046], 0.05); },
+  die() { this.tone(360, 0.45, 'sawtooth', 0.8, 0, 60); this.noise(0.35, 0.4, 0.05); },
+  bounce() { this.tone(420, 0.03, 'square', 0.4); },
+  paddle() { this.tone(260, 0.05, 'triangle', 0.9); },
+  brick(hp) { this.tone(hp > 0 ? 520 : 760, 0.04, 'square', 0.6); },
+  lose() { this.seq([392, 330, 262], 0.12, 'triangle', 0.9); },
+  clear() { this.seq([523, 659, 784, 1046, 1318], 0.07); },
+  powerup() { this.seq([880, 1108, 1318], 0.05, 'square', 0.6); },
+  move() { this.tone(180, 0.02, 'square', 0.25); },
+  rotate() { this.tone(560, 0.03, 'square', 0.4); },
+  lock() { this.tone(140, 0.06, 'triangle', 0.9); },
+  drop() { this.tone(200, 0.08, 'triangle', 0.9, 0, 90); },
+  line(n) { if (n >= 4) this.seq([659, 784, 1046, 1318, 1046, 1318, 1568], 0.06); else this.seq([659, 880, 1108], 0.06); },
+  levelup() { this.seq([523, 659, 784, 1046], 0.06); },
+  over() { this.seq([392, 370, 349, 330, 311, 294, 262], 0.11, 'square', 0.7); },
+  secret() { this.seq([1046, 1318, 1568, 2093, 1568, 2093], 0.06); },
+};
+
+/* ---------- input (keyboard + on-screen buttons) ---------- */
+const Input = {
+  held: new Set(), just: new Set(), history: [],
+  down(k) { if (this.held.has(k)) return; this.held.add(k); this.just.add(k); this.history.push(k); if (this.history.length > 12) this.history.shift(); Shell.onInput(); },
+  up(k) { this.held.delete(k); },
+  pressed(k) { return this.just.has(k); },
+  isDown(k) { return this.held.has(k); },
+  any() { return this.just.size > 0; },
+  endStep() { this.just.clear(); },
+  releaseAll() { this.held.clear(); this.just.clear(); },
+  dirPressed() { if (this.just.has('up')) return { x: 0, y: -1 }; if (this.just.has('down')) return { x: 0, y: 1 }; if (this.just.has('left')) return { x: -1, y: 0 }; if (this.just.has('right')) return { x: 1, y: 0 }; return null; },
+};
+/* hold-to-repeat for menus */
+function makeRepeater(delay = 22, rate = 7) {
+  let t = 0, last = null;
+  return function (dir) {
+    if (!dir) { last = null; t = 0; return 0; }
+    if (dir !== last) { last = dir; t = 0; return dir; }
+    t++; if (t >= delay && (t - delay) % rate === 0) return dir; return 0;
+  };
+}
+function navDir() { const u = Input.isDown('up') || Input.pressed('up'), d = Input.isDown('down') || Input.pressed('down'); return u && !d ? 'up' : d && !u ? 'down' : null; }
+function navDirH() { const l = Input.isDown('left') || Input.pressed('left'), r = Input.isDown('right') || Input.pressed('right'); return l && !r ? 'left' : r && !l ? 'right' : null; }
+
+/* ---------- the plastic: DOM wiring, scaling, gestures, toasts ---------- */
+const Shell = {
+  k: 2, powered: false, toastTimer: 0, shellNames: ['gray', 'teal', 'berry', 'black'], secret: Store.get('secret', false),
+  init() {
+    this.screenWrap = $('screenWrap'); this.canvas = $('screen'); this.shellEl = $('shell'); this.toastEl = $('toast');
+    this.dpad = $('dpad'); this.led = $('led'); this.ledText = $('ledText');
+    R.init(this.canvas);
+    this.applySettings();
+    this.wireButtons(); this.wireDpad(); this.wireScreen(); this.wireKeys();
+    $('sndBtn').addEventListener('click', () => { Sfx.unlock(); Sfx.setEnabled(!Sfx.enabled); this.applySettings(); if (Sfx.enabled) Sfx.confirm(); this.toast(Sfx.enabled ? 'Sound on' : 'Sound off'); });
+    $('ledWrap').addEventListener('click', () => this.toast(this.ledMsg));
+    $('brand').addEventListener('click', () => { Sfx.unlock(); this.cycleShell(); });
+    this.shellEl.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('touchstart', (e) => { if (e.target.closest && e.target.closest('.shell')) e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    window.addEventListener('resize', () => this.layout());
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.layout());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { Sfx.suspend(); if (scene && scene.autoPause) scene.autoPause(); Input.releaseAll(); } else Sfx.resume(); });
+    this.layout(); requestAnimationFrame(() => this.layout());
+    this.setLed('power');
+  },
+  applySettings() {
+    const palName = Store.get('palette', 'GREEN'); R.setPalette(PALETTES[palName] || PALETTES.GREEN);
+    this.shellEl.dataset.shell = Store.get('shell', 'gray');
+    $('lcd').classList.toggle('off', !Store.get('lcd', true));
+    $('sndBtn').classList.toggle('muted', !Sfx.enabled);
+  },
+  cycleShell() {
+    const names = this.secret ? this.shellNames.concat('atomic') : this.shellNames;
+    const cur = names.indexOf(this.shellEl.dataset.shell); const next = names[(cur + 1) % names.length];
+    Store.set('shell', next); this.shellEl.dataset.shell = next; Sfx.blip();
+  },
+  ledMsg: 'Needs a connection on this page',
+  setLed(state, msg) {
+    this.led.className = 'led ' + (state === 'offline' ? 'on' : state === 'off' ? 'off' : '');
+    this.ledText.textContent = state === 'offline' ? 'OFFLINE OK' : state === 'off' ? 'POWER' : 'ONLINE';
+    if (msg) this.ledMsg = msg;
+  },
+  layout() {
+    const shell = this.shellEl, bezel = shell.querySelector('.bezel'), top = shell.querySelector('.bezel-top');
+    const cs = getComputedStyle(shell), bs = getComputedStyle(bezel);
+    const landscape = cs.gridTemplateAreas.indexOf('"dpad bezel ab"') === 0 || matchMedia('(orientation: landscape) and (max-height: 560px)').matches;
+    const gap = parseFloat(cs.rowGap) || 10;
+    const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom), padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    const bpadY = parseFloat(bs.paddingTop) + parseFloat(bs.paddingBottom), bpadX = parseFloat(bs.paddingLeft) + parseFloat(bs.paddingRight);
+    let availW, availH;
+    if (landscape) {
+      availW = shell.clientWidth - padX - this.dpad.offsetWidth - shell.querySelector('.ab').offsetWidth - 2 * (parseFloat(cs.columnGap) || 10) - bpadX - 8;
+      availH = shell.clientHeight - padY - bpadY - top.offsetHeight - 6 - shell.querySelector('.pills').offsetHeight - gap;
+    } else {
+      availW = shell.clientWidth - padX - bpadX;
+      availH = shell.clientHeight - padY - bpadY - top.offsetHeight - 6 - $('brand').offsetHeight - Math.max(this.dpad.offsetHeight, shell.querySelector('.ab').offsetHeight) - shell.querySelector('.pills').offsetHeight - 3 * gap;
+    }
+    availW = Math.max(160, availW); availH = Math.max(144, availH);
+    const dpr = window.devicePixelRatio || 1;
+    /* prefer an integer number of device pixels per logical pixel (crisp), unless that wastes too much of the screen */
+    let kd = Math.floor(Math.min(availW * dpr / W, availH * dpr / H)); if (kd < 1) kd = 1;
+    let cssW = kd * W / dpr, cssH = kd * H / dpr;
+    const fitW = Math.min(availW, availH * W / H);
+    if (cssW < fitW * 0.9) { cssW = Math.floor(fitW); cssH = Math.round(cssW * H / W); }
+    this.screenWrap.style.width = cssW + 'px'; this.screenWrap.style.height = cssH + 'px';
+    this.k = cssW / W;
+  },
+  toast(msg, ms = 2200) {
+    this.toastEl.textContent = msg; this.toastEl.classList.add('show');
+    clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => this.toastEl.classList.remove('show'), ms);
+  },
+  haptic(ms = 8) { try { if (navigator.vibrate && Store.get('haptic', true)) navigator.vibrate(ms); } catch (e) {} },
+  onInput() { if (!Sfx.unlocked) Sfx.unlock(); },
+  /* A/B/Start/Select buttons */
+  wireButtons() {
+    this.shellEl.querySelectorAll('[data-key]').forEach((el) => {
+      const key = el.dataset.key;
+      const down = (e) => { e.preventDefault(); if (e.pointerId != null) { try { el.setPointerCapture(e.pointerId); } catch (x) {} } el.classList.add('pressed'); Input.down(key); this.haptic(); };
+      const up = (e) => { el.classList.remove('pressed'); Input.up(key); };
+      el.addEventListener('pointerdown', down); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+      el.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') e.preventDefault(); });
+    });
+  },
+  /* D-pad: direction from the thumb position; slide between directions without lifting */
+  wireDpad() {
+    const el = this.dpad; let pid = null, cur = null;
+    const dirs = ['up', 'down', 'left', 'right'];
+    const set = (d) => { if (d === cur) return; if (cur) { Input.up(cur); el.classList.remove('p-' + cur); } cur = d; if (d) { Input.down(d); el.classList.add('p-' + d); this.haptic(); } };
+    const calc = (e) => {
+      const r = el.getBoundingClientRect(); const dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2), dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      if (dx * dx + dy * dy < 0.04) return cur; /* dead zone in the hub */
+      return Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+    };
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); pid = e.pointerId; try { el.setPointerCapture(pid); } catch (x) {} set(calc(e)); });
+    el.addEventListener('pointermove', (e) => { if (e.pointerId === pid) set(calc(e)); });
+    const end = (e) => { if (e.pointerId === pid) { pid = null; set(null); } };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
+    dirs.forEach(() => {});
+  },
+  /* touch gestures on the LCD itself: taps, swipes, drags, flicks — handed to the active scene */
+  wireScreen() {
+    const el = this.screenWrap; let g = null;
+    const logical = (e) => { const r = el.getBoundingClientRect(); return { x: (e.clientX - r.left) / this.k, y: (e.clientY - r.top) / this.k }; };
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); if (g) return; try { el.setPointerCapture(e.pointerId); } catch (x) {}
+      const p = logical(e);
+      g = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ax: e.clientX, ay: e.clientY, lx: e.clientX, ly: e.clientY, t0: performance.now(), moved: 0 };
+      this.onInput();
+      if (scene && scene.touch) scene.touch({ type: 'down', x: p.x, y: p.y, dx: 0, dy: 0, ddx: 0, ddy: 0, k: this.k });
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!g || e.pointerId !== g.id) return;
+      const p = logical(e); const ddx = e.clientX - g.lx, ddy = e.clientY - g.ly; g.lx = e.clientX; g.ly = e.clientY;
+      g.moved = Math.max(g.moved, Math.hypot(e.clientX - g.sx, e.clientY - g.sy));
+      const ev = { type: 'move', x: p.x, y: p.y, dx: e.clientX - g.sx, dy: e.clientY - g.sy, ddx, ddy, k: this.k };
+      if (scene && scene.touch) scene.touch(ev);
+      /* swipe: fires as soon as the thumb travels far enough from its anchor, then re-anchors so you can chain turns */
+      const ax = e.clientX - g.ax, ay = e.clientY - g.ay;
+      if (Math.hypot(ax, ay) >= 18) {
+        const dir = Math.abs(ax) > Math.abs(ay) ? (ax < 0 ? 'left' : 'right') : (ay < 0 ? 'up' : 'down');
+        g.ax = e.clientX; g.ay = e.clientY;
+        if (scene && scene.touch) scene.touch({ type: 'swipe', dir, x: p.x, y: p.y, k: this.k });
+      }
+    });
+    const end = (e) => {
+      if (!g || e.pointerId !== g.id) return;
+      const p = logical(e); const dur = performance.now() - g.t0; const dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+      const tap = g.moved < 10 && dur < 400;
+      const flick = !tap && dur < 260 && Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx) * 1.4 ? (dy > 0 ? 'down' : 'up') : null;
+      g = null;
+      if (scene && scene.touch) scene.touch({ type: 'up', x: p.x, y: p.y, dx, dy, dur, tap, flick, k: this.k });
+    };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  },
+  wireKeys() {
+    const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
+      z: 'a', Z: 'a', k: 'a', K: 'a', ' ': 'a', x: 'b', X: 'b', j: 'b', J: 'b', Enter: 'start', Escape: 'start', p: 'start', P: 'start', Shift: 'select', Tab: 'select' };
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'm' || e.key === 'M') { if (!e.repeat) $('sndBtn').click(); return; }
+      const k = map[e.key]; if (!k) return; e.preventDefault(); if (!e.repeat) Input.down(k);
+    });
+    window.addEventListener('keyup', (e) => { const k = map[e.key]; if (k) Input.up(k); });
+    window.addEventListener('blur', () => Input.releaseAll());
+  },
+};
+
+/* ---------- scene system ---------- */
+let scene = null, frameCount = 0;
+function go(next, ...args) { if (scene && scene.leave) scene.leave(); scene = next; Input.endStep(); if (next.enter) next.enter(...args); }
+
+/* shared cartridge icons (16x16) */
+const ICONS = {
+  snake: ['................','.0000...........','.0..0...........','.0..0...0000....','.0..0...0..0....','.0..000.0..0....','.0....0.0..0....','.0000000...0....','.......0...0....','....0000...0....','....0......0....','....0......0....','....0000000.....','................','.......2........','......222.......'],
+  bricks: ['................','.00.00.00.00.00.','.00.00.00.00.00.','................','.11.11.11.11.11.','.11.11.11.11.11.','................','.22.22.22.22.22.','.22.22.22.22.22.','................','................','.........00.....','.........00.....','................','.....000000.....','.....000000.....'],
+  blocks: ['................','....00..........','....00..........','....00..........','....0000........','................','..1111..22......','..1111..22......','......2222......','......22........','..00............','..00..1111......','..0000..11......','..0000..11......','........11......','................'],
+};
+
+/* ---------- POWER OFF: tap to turn on (also unlocks audio) ---------- */
+const PowerOff = {
+  t: 0,
+  enter() { this.t = 0; Shell.setLed('off'); },
+  update(dt) {
+    this.t += dt;
+    if (Input.any()) { Shell.powered = true; Sfx.unlock(); Sfx.power(); Shell.setLed('power'); go(Boot); }
+  },
+  touch(e) { if (e.type === 'down') { Shell.powered = true; Sfx.unlock(); Sfx.power(); Shell.setLed('power'); go(Boot); } },
+  draw() {
+    R.clear(2); /* unlit LCD */
+    R.dither(0, 0, W, H, 2, 3);
+    if (Math.floor(this.t * 2) % 2 === 0) R.textC('TAP TO POWER ON', 66, 1);
+    R.textC('POCKET ARCADE', 120, 1);
+  },
+};
+
+/* ---------- BOOT: the logo drops in, then the chime ---------- */
+const Boot = {
+  t: 0, dinged: false,
+  enter() { this.t = 0; this.dinged = false; },
+  update(dt) {
+    this.t += dt;
+    if (this.t >= 1.05 && !this.dinged) { this.dinged = true; Sfx.boot(); }
+    if (this.t > 2.4 || (this.t > 0.3 && Input.any())) go(Menu);
+  },
+  touch(e) { if (e.type === 'down' && this.t > 0.3) go(Menu); },
+  draw() {
+    R.clear(3);
+    const p = clamp(this.t / 1.0, 0, 1), ease = 1 - Math.pow(1 - p, 3);
+    const y = Math.round(-20 + ease * 76);
+    /* chunky logo: ARCADE at 2x with a block underline */
+    R.textC('POCKET', y - 10, 0);
+    R.textC('ARCADE', y, 0, 2);
+    const flash = this.dinged && this.t - 1.05 < 0.22;
+    R.rect(44, y + 16, 72, 2, flash ? 2 : 0);
+    if (this.dinged && this.t > 1.5) R.textC('3 GAMES · 1 FILE', y + 24, 1);
+  },
+};
+
+/* ---------- MENU: pick a cartridge ---------- */
+const Menu = {
+  idx: 0, rep: makeRepeater(), t: 0, games: [], konami: ['up', 'up', 'down', 'down', 'left', 'right', 'left', 'right', 'b', 'a'],
+  enter() { this.t = 0; this.games = [Snake, Bricks, Blocks]; Input.history.length = 0; },
+  update(dt) {
+    this.t += dt;
+    const d = this.rep(navDir());
+    if (d === 'up') { this.idx = (this.idx + this.games.length - 1) % this.games.length; Sfx.blip(); }
+    if (d === 'down') { this.idx = (this.idx + 1) % this.games.length; Sfx.blip(); }
+    if (Input.pressed('a') || Input.pressed('start')) this.launch();
+    if (Input.pressed('select')) { Sfx.confirm(); go(Options); }
+    if (!Shell.secret && Input.history.length >= 10 && Input.history.slice(-10).join() === this.konami.join()) {
+      Shell.secret = true; Store.set('secret', true); Store.set('shell', 'atomic'); Shell.shellEl.dataset.shell = 'atomic'; Sfx.secret(); Shell.toast('Secret shell unlocked: ATOMIC');
+    }
+  },
+  launch() { Sfx.confirm(); go(this.games[this.idx]); },
+  cardY(i) { return 22 + i * 32; },
+  touch(e) {
+    if (e.type !== 'up' || !e.tap) return;
+    for (let i = 0; i < this.games.length; i++) { const y = this.cardY(i); if (e.y >= y && e.y < y + 28) { if (this.idx === i) this.launch(); else { this.idx = i; Sfx.blip(); } return; } }
+    if (e.y > 126) { Sfx.confirm(); go(Options); }
+  },
+  draw() {
+    R.clear(3);
+    R.text('POCKET ARCADE', 8, 5, 0);
+    if (Sfx.enabled) R.textR('♪', 152, 5, 1);
+    R.rect(8, 14, 144, 1, 1);
+    for (let i = 0; i < this.games.length; i++) {
+      const g = this.games[i], y = this.cardY(i), sel = i === this.idx;
+      /* cartridge card: a notch at the left like a real cart */
+      R.box(12, y, 136, 28, sel ? 0 : 3, sel ? 0 : 1);
+      if (!sel) R.rect(12, y + 2, 1, 24, 1);
+      R.sprite(ICONS[g.key], 18, y + 6, sel ? [3, 2, 1, 0] : null);
+      R.text(g.name, 42, y + 5, sel ? 3 : 0);
+      R.text('BEST ' + pad(Store.best(g.key), 6), 42, y + 16, sel ? 2 : 1);
+      if (sel && Math.floor(this.t * 4) % 2 === 0) R.text('▶', 138, y + 10, 3);
+    }
+    R.text('A PLAY   SELECT:OPTIONS', 8, 133, 1);
+  },
+};
+
+/* ---------- OPTIONS ---------- */
+const Options = {
+  idx: 0, rep: makeRepeater(), confirmReset: false,
+  items() {
+    const shells = Shell.secret ? Shell.shellNames.concat('atomic') : Shell.shellNames;
+    return [
+      { label: 'SOUND', value: () => Sfx.enabled ? 'ON' : 'OFF', change: () => { Sfx.setEnabled(!Sfx.enabled); Shell.applySettings(); } },
+      { label: 'SCREEN', value: () => Store.get('palette', 'GREEN'), change: (d) => { const i = PALETTE_NAMES.indexOf(Store.get('palette', 'GREEN')); const n = PALETTE_NAMES[(i + d + PALETTE_NAMES.length) % PALETTE_NAMES.length]; Store.set('palette', n); Shell.applySettings(); } },
+      { label: 'SHELL', value: () => Store.get('shell', 'gray').toUpperCase(), change: (d) => { const i = shells.indexOf(Store.get('shell', 'gray')); const n = shells[(i + d + shells.length) % shells.length]; Store.set('shell', n); Shell.applySettings(); } },
+      { label: 'LCD GRID', value: () => Store.get('lcd', true) ? 'ON' : 'OFF', change: () => { Store.set('lcd', !Store.get('lcd', true)); Shell.applySettings(); } },
+      { label: 'RUMBLE', value: () => Store.get('haptic', true) ? 'ON' : 'OFF', change: () => { Store.set('haptic', !Store.get('haptic', true)); Shell.haptic(20); } },
+      { label: 'RESET SCORES', value: () => this.confirmReset ? 'A=YES B=NO' : '', change: () => { if (!this.confirmReset) { this.confirmReset = true; return; } ['snake', 'bricks', 'blocks'].forEach((k) => Store.setBest(k, 0)); this.confirmReset = false; Shell.toast('High scores cleared'); } },
+      { label: 'BACK', value: () => '', change: () => { Sfx.back(); go(Menu); } },
+    ];
+  },
+  enter() { this.idx = 0; this.confirmReset = false; },
+  update() {
+    const items = this.items(); const d = this.rep(navDir());
+    if (d === 'up') { this.idx = (this.idx + items.length - 1) % items.length; this.confirmReset = false; Sfx.blip(); }
+    if (d === 'down') { this.idx = (this.idx + 1) % items.length; this.confirmReset = false; Sfx.blip(); }
+    const h = this.rep(navDirH());
+    if (h === 'left' || h === 'right' || Input.pressed('a') || Input.pressed('start')) { const it = items[this.idx]; it.change(h === 'left' ? -1 : 1); if (it.label !== 'BACK') Sfx.blip(); }
+    if (Input.pressed('b') || Input.pressed('select')) { if (this.confirmReset) this.confirmReset = false; else { Sfx.back(); go(Menu); } }
+  },
+  touch(e) {
+    if (e.type !== 'up' || !e.tap) return;
+    const items = this.items();
+    for (let i = 0; i < items.length; i++) { const y = 26 + i * 15; if (e.y >= y - 3 && e.y < y + 12) { if (this.idx === i) { items[i].change(1); if (items[i].label !== 'BACK') Sfx.blip(); } else { this.idx = i; this.confirmReset = false; Sfx.blip(); } return; } }
+  },
+  draw() {
+    R.clear(3);
+    R.text('OPTIONS', 8, 5, 0); R.rect(8, 14, 144, 1, 1);
+    const items = this.items();
+    items.forEach((it, i) => {
+      const y = 26 + i * 15, sel = i === this.idx;
+      if (sel) R.box(6, y - 4, 148, 13, 0);
+      R.text((sel ? '▶ ' : '  ') + it.label, 8, y, sel ? 3 : 0);
+      const v = it.value(); if (v) R.textR((sel && it.label !== 'RESET SCORES' ? '◀ ' : '') + v + (sel && it.label !== 'RESET SCORES' ? ' ▶' : ''), 150, y, sel ? 3 : 1);
+    });
+    R.text('B BACK', 8, 133, 1);
+  },
+};
+
+/* ---------- PAUSE overlay (shared by games) ---------- */
+const Pause = {
+  idx: 0, rep: makeRepeater(), items: ['RESUME', 'RESTART', 'QUIT'],
+  open() { this.idx = 0; Sfx.pause(); Input.releaseAll(); },
+  /* returns 'resume' | 'restart' | 'quit' | null */
+  update() {
+    const d = this.rep(navDir());
+    if (d === 'up') { this.idx = (this.idx + 2) % 3; Sfx.blip(); }
+    if (d === 'down') { this.idx = (this.idx + 1) % 3; Sfx.blip(); }
+    if (Input.pressed('start') || Input.pressed('b')) { Sfx.back(); return 'resume'; }
+    if (Input.pressed('a')) { Sfx.confirm(); return ['resume', 'restart', 'quit'][this.idx]; }
+    return null;
+  },
+  touch(e) {
+    if (e.type !== 'up' || !e.tap) return null;
+    for (let i = 0; i < 3; i++) { const y = 62 + i * 14; if (e.y >= y - 4 && e.y < y + 11) { if (this.idx === i) { Sfx.confirm(); return ['resume', 'restart', 'quit'][i]; } this.idx = i; Sfx.blip(); return null; } }
+    return null;
+  },
+  draw() {
+    R.dither(0, 0, W, H, 3, 2);
+    R.box(34, 40, 92, 64, 3, 0); R.box(36, 42, 88, 60, 3, 1);
+    R.textC('PAUSED', 48, 0);
+    this.items.forEach((s, i) => { const y = 62 + i * 14, sel = i === this.idx; if (sel) R.rect(42, y - 3, 76, 12, 0); R.textC(s, y, sel ? 3 : 0); });
+  },
+};
+
+/* ---------- GAME OVER overlay (shared) ---------- */
+const Over = {
+  t: 0, score: 0, best: 0, isNew: false, game: null, label: 'GAME OVER',
+  show(game, score, label) {
+    this.game = game; this.score = score; this.t = 0; this.label = label || 'GAME OVER';
+    const prev = Store.best(game.key); this.isNew = score > prev; if (this.isNew) Store.setBest(game.key, score); this.best = Math.max(prev, score);
+    Input.releaseAll(); Sfx.over();
+  },
+  update(dt) {
+    this.t += dt; if (this.t < 0.7) return null;
+    if (Input.pressed('a') || Input.pressed('start')) { Sfx.confirm(); return 'retry'; }
+    if (Input.pressed('b') || Input.pressed('select')) { Sfx.back(); return 'menu'; }
+    return null;
+  },
+  touch(e) { if (this.t < 0.7 || e.type !== 'up' || !e.tap) return null; if (e.y >= 83 && e.x >= 80) { Sfx.back(); return 'menu'; } Sfx.confirm(); return 'retry'; },
+  draw() {
+    const slide = clamp(this.t / 0.35, 0, 1), y = Math.round(-80 + (1 - Math.pow(1 - slide, 3)) * 116);
+    R.box(20, y, 120, 72, 3, 0); R.box(22, y + 2, 116, 68, 3, 1);
+    R.textC(this.label, y + 8, 0, 1);
+    R.rect(30, y + 18, 100, 1, 1);
+    R.text('SCORE', 30, y + 25, 1); R.textR(pad(this.score, 6), 130, y + 25, 0);
+    if (this.isNew) { if (Math.floor(this.t * 5) % 2 === 0) R.text('NEW BEST!', 30, y + 36, 0); else R.text('NEW BEST!', 30, y + 36, 2); }
+    else R.text('BEST', 30, y + 36, 1);
+    R.textR(pad(this.best, 6), 130, y + 36, 0);
+    R.rect(30, y + 47, 100, 1, 1);
+    R.text('A RETRY', 30, y + 55, 0); R.textR('B MENU', 130, y + 55, 0);
+  },
+};
+
+/* helper used by games: draws a centered blinking prompt box */
+function promptBox(lines, t, y0 = 50) {
+  const h = 14 + lines.length * 10, w = 12 + Math.max(...lines.map((l) => R.textW(l)));
+  const x = Math.round(W / 2 - w / 2);
+  R.box(x, y0, w, h, 3, 0);
+  lines.forEach((l, i) => R.textC(l, y0 + 7 + i * 10, i === lines.length - 1 && Math.floor(t * 2.5) % 2 ? 2 : 0));
+}
+
+/* ======================= SNAKE ======================= */
+const DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
+const SNAKE_FOOD = ['..00..', '.0000.', '003000', '000000', '.0000.', '..00..'];
+const SNAKE_BUG = [['.0..0.', '..00..', '.0330.', '000000', '.0000.', '0.00.0'], ['0....0', '..00..', '.0330.', '000000', '.0000.', '.0..0.']];
+const SNAKE_APPLE = ['..0..', '.000.', '00300', '00000', '.000.'];
+const Snake = {
+  name: 'SNAKE', key: 'snake', COLS: 20, ROWS: 16, OY: 16,
+  enter() { this.reset(); },
+  reset() {
+    this.body = [{ x: 9, y: 8 }, { x: 8, y: 8 }, { x: 7, y: 8 }]; this.dir = DIRS.right; this.queue = []; this.grow = 0;
+    this.score = 0; this.eaten = 0; this.tick = 0; this.interval = 0.15; this.state = 'ready'; this.t = 0; this.dieT = 0;
+    this.bug = null; this.bugT = 0; this.bugMax = 1; this.popup = null; this.best = Store.best(this.key);
+    this.food = null; this.food = this.spawn();
+  },
+  spawn() { for (let i = 0; i < 400; i++) { const x = rnd(this.COLS), y = rnd(this.ROWS); if (!this.occupied(x, y)) return { x, y }; } return null; },
+  occupied(x, y) { if (this.food && this.food.x === x && this.food.y === y) return true; if (this.bug && this.bug.x === x && this.bug.y === y) return true; return this.body.some((s) => s.x === x && s.y === y); },
+  autoPause() { if (this.state === 'play') { this.state = 'pause'; Pause.open(); } },
+  pushDir(d) {
+    const last = this.queue.length ? this.queue[this.queue.length - 1] : this.dir;
+    if ((d.x && d.x === -last.x) || (d.y && d.y === -last.y) || (d.x === last.x && d.y === last.y)) return;
+    if (this.queue.length < 2) this.queue.push(d);
+    if (this.state === 'ready') this.state = 'play';
+  },
+  update(dt) {
+    this.t += dt;
+    if (this.state === 'over') { const r = Over.update(dt); if (r === 'retry') this.reset(); else if (r === 'menu') go(Menu); return; }
+    if (this.state === 'pause') { const r = Pause.update(); if (r === 'resume') this.state = 'play'; else if (r === 'restart') this.reset(); else if (r === 'quit') go(Menu); return; }
+    if (this.state === 'dying') { this.dieT += dt; if (this.dieT > 1.1) { this.state = 'over'; Over.show(this, this.score); } return; }
+    if (Input.pressed('start')) { this.state = 'pause'; Pause.open(); return; }
+    if (this.state === 'ready' && Input.pressed('b')) { Sfx.back(); go(Menu); return; }
+    const d = Input.dirPressed(); if (d) this.pushDir(d);
+    if (this.state !== 'play') return;
+    if (this.popup) { this.popup.t -= dt; if (this.popup.t <= 0) this.popup = null; }
+    if (this.bug) { this.bugT -= dt; if (this.bugT <= 0) this.bug = null; }
+    this.tick += dt;
+    while (this.tick >= this.interval && this.state === 'play') { this.tick -= this.interval; this.step(); }
+  },
+  touch(e) {
+    if (this.state === 'over') { const r = Over.touch(e); if (r === 'retry') this.reset(); else if (r === 'menu') go(Menu); return; }
+    if (this.state === 'pause') { const r = Pause.touch(e); if (r === 'resume') this.state = 'play'; else if (r === 'restart') this.reset(); else if (r === 'quit') go(Menu); return; }
+    if (e.type === 'swipe' && (this.state === 'play' || this.state === 'ready')) this.pushDir(DIRS[e.dir]);
+  },
+  step() {
+    if (this.queue.length) this.dir = this.queue.shift();
+    const h = this.body[0], nx = h.x + this.dir.x, ny = h.y + this.dir.y;
+    if (nx < 0 || ny < 0 || nx >= this.COLS || ny >= this.ROWS) return this.die();
+    const lim = this.body.length - (this.grow > 0 ? 0 : 1);
+    for (let i = 0; i < lim; i++) if (this.body[i].x === nx && this.body[i].y === ny) return this.die();
+    this.body.unshift({ x: nx, y: ny });
+    if (this.food && nx === this.food.x && ny === this.food.y) {
+      this.food = null; this.score += 10; this.eaten++; this.grow += 1;
+      this.interval = Math.max(0.065, 0.15 - this.eaten * 0.0035);
+      Sfx.eat(); Shell.haptic(6);
+      this.food = this.spawn();
+      if (this.eaten % 5 === 0 && !this.bug) { this.bug = this.spawn(); this.bugMax = this.bugT = 24 * this.interval + 1.2; }
+    } else if (this.bug && nx === this.bug.x && ny === this.bug.y) {
+      const pts = 10 * Math.max(1, Math.ceil(5 * this.bugT / this.bugMax));
+      this.score += pts; this.grow += 2; this.bug = null; Sfx.bonus(); Shell.haptic(12);
+      this.popup = { text: '+' + pts, x: nx, y: ny, t: 0.9 };
+    }
+    if (this.grow > 0) this.grow--; else this.body.pop();
+  },
+  die() { this.state = 'dying'; this.dieT = 0; Sfx.die(); Shell.haptic(60); },
+  drawSnake() {
+    const b = this.body, OY = this.OY;
+    for (let i = b.length - 1; i >= 0; i--) {
+      const s = b[i], x0 = s.x * 8, y0 = OY + s.y * 8, tail = i === b.length - 1 && b.length > 1;
+      if (tail) R.rect(x0 + 2, y0 + 2, 4, 4, 0); else R.rect(x0 + 1, y0 + 1, 6, 6, 0);
+      if (i > 0) { /* neck between this segment and the one ahead of it */
+        const p = b[i - 1], dx = p.x - s.x, dy = p.y - s.y, e = tail ? 1 : 0;
+        if (dx === 1) R.rect(x0 + 7 - e, y0 + 2, 2 + e, 4, 0); else if (dx === -1) R.rect(x0 - 1, y0 + 2, 2 + e, 4, 0);
+        else if (dy === 1) R.rect(x0 + 2, y0 + 7 - e, 4, 2 + e, 0); else if (dy === -1) R.rect(x0 + 2, y0 - 1, 4, 2 + e, 0);
+      }
+      if (i === 0) { /* eyes */
+        const d = this.dir, ex = x0 + 1, ey = y0 + 1;
+        if (d.x === 1) { R.px(ex + 4, ey + 1, 3); R.px(ex + 4, ey + 4, 3); } else if (d.x === -1) { R.px(ex + 1, ey + 1, 3); R.px(ex + 1, ey + 4, 3); }
+        else if (d.y === -1) { R.px(ex + 1, ey + 1, 3); R.px(ex + 4, ey + 1, 3); } else { R.px(ex + 1, ey + 4, 3); R.px(ex + 4, ey + 4, 3); }
+      }
+    }
+  },
+  draw() {
+    if (this.state === 'dying' && this.dieT < 0.08) { R.clear(0); return; }
+    R.clear(3);
+    /* HUD */
+    R.sprite(SNAKE_APPLE, 3, 4); R.text(pad(this.score, 5), 11, 4, 0);
+    R.text('HI', 114, 4, 1); R.text(pad(Math.max(this.best, this.score), 5), 128, 4, 1);
+    if (this.bug) { R.frame(60, 5, 40, 5, 1); R.rect(61, 6, Math.round(38 * this.bugT / this.bugMax), 3, 0); }
+    /* field */
+    R.frame(0, this.OY - 1, W, H - this.OY + 1, 0);
+    if (this.food) R.sprite(SNAKE_FOOD, this.food.x * 8 + 1, this.OY + this.food.y * 8 + 1);
+    if (this.bug && (this.bugT > 2 || Math.floor(this.t * 8) % 2 === 0)) R.sprite(SNAKE_BUG[Math.floor(this.t * 6) % 2], this.bug.x * 8 + 1, this.OY + this.bug.y * 8 + 1);
+    if (this.state !== 'dying' || Math.floor(this.dieT * 8) % 2 === 0) this.drawSnake();
+    if (this.popup) R.text(this.popup.text, clamp(this.popup.x * 8 - 4, 2, 140), clamp(this.OY + this.popup.y * 8 - 10, this.OY + 1, H - 9), 0);
+    if (this.state === 'ready') promptBox(['READY?', 'SWIPE OR D-PAD'], this.t, 60);
+    if (this.state === 'pause') Pause.draw();
+    if (this.state === 'over') Over.draw();
+  },
+};
+
+/* ======================= BRICKS ======================= */
+const MINI = { W: ['#.#', '#.#', '#.#', '###', '#.#'], M: ['#.#', '###', '###', '#.#', '#.#'], S: ['###', '#..', '###', '..#', '###'], L: ['#..', '#..', '#..', '#..', '###'] };
+const Bricks = {
+  name: 'BRICKS', key: 'bricks',
+  BX: 5, BY: 18, BW: 14, BH: 6, CW: 15, CH: 7, COLS: 10, PADDLE_W: 24, WIDE_W: 36,
+  PATTERNS: [
+    ['2222222222', '2222222222', '1111111111', '1111111111'],
+    ['3.3.3.3.3.', '.2.2.2.2.2', '2.2.2.2.2.', '.1.1.1.1.1', '1.1.1.1.1.'],
+    ['....33....', '...2222...', '..222222..', '.11111111.', '1111111111'],
+    ['3333333333', '3........3', '3.222222.3', '3.2.11.2.3', '3.222222.3', '3........3', '3333333333'],
+    ['..1....1..', '...1..1...', '..111111..', '.11.11.11.', '1111111111', '1.111111.1', '1.1....1.1', '...22.22..'],
+    ['3.3.3.3.3.', '3.3.3.3.3.', '3.3.3.3.3.', '.2.2.2.2.2', '.2.2.2.2.2', '1111111111'],
+  ],
+  enter() { this.score = 0; this.lives = 3; this.t = 0; this.best = Store.best(this.key); this.load(0); },
+  load(n) {
+    this.level = n; const pat = this.PATTERNS[n % this.PATTERNS.length];
+    this.grid = pat.map((row) => row.split('').map((c) => (c === '.' ? 0 : +c))); this.rows = this.grid.length;
+    this.left = 0; this.grid.forEach((r) => r.forEach((v) => { if (v) this.left++; }));
+    this.baseSpeed = 90 + n * 8; this.powerups = []; this.sparks = [];
+    this.paddle = { x: 68, y: 136, w: this.PADDLE_W, h: 3 };
+    this.resetBall(); this.clearT = 0;
+  },
+  resetBall() { this.paddle.w = this.PADDLE_W; this.wide = 0; this.slow = 0; this.balls = [{ x: 0, y: 0, vx: 0, vy: 0, stuck: true }]; this.speed = this.baseSpeed; this.state = 'ready'; this.hits = 0; Input.releaseAll(); },
+  autoPause() { if (this.state === 'play') { this.state = 'pause'; Pause.open(); } },
+  update(dt) {
+    this.t += dt;
+    if (this.state === 'over') { const r = Over.update(dt); if (r === 'retry') this.enter(); else if (r === 'menu') go(Menu); return; }
+    if (this.state === 'pause') { const r = Pause.update(); if (r === 'resume') this.state = 'play'; else if (r === 'restart') this.enter(); else if (r === 'quit') go(Menu); return; }
+    if (this.state === 'clear') { this.clearT += dt; if (this.clearT > 1.8) this.load(this.level + 1); return; }
+    if (this.state === 'lost') { this.clearT += dt; if (this.clearT > 1.0) { if (this.lives <= 0) { this.state = 'over'; Over.show(this, this.score); } else this.resetBall(); } return; }
+    if (Input.pressed('start')) { this.state = 'pause'; Pause.open(); return; }
+    if (this.state === 'ready' && Input.pressed('b') && this.level === 0 && this.lives === 3 && this.score === 0) { Sfx.back(); go(Menu); return; }
+    const p = this.paddle, spd = 170;
+    if (Input.isDown('left')) p.x -= spd * dt; if (Input.isDown('right')) p.x += spd * dt;
+    p.x = clamp(p.x, 1, W - 1 - p.w);
+    if (this.state === 'ready') {
+      const b = this.balls[0]; b.x = p.x + p.w / 2 - 1.5; b.y = p.y - 3;
+      if (Input.pressed('a') || Input.pressed('b') || this.launchReq) { this.launchReq = false; this.launch(); } else return;
+    }
+    if (this.wide > 0) { this.wide -= dt; if (this.wide <= 0) { p.w = this.PADDLE_W; p.x = clamp(p.x + 6, 1, W - 1 - p.w); } }
+    if (this.slow > 0) this.slow -= dt;
+    const sp = this.speed * (this.slow > 0 ? 0.7 : 1);
+    for (const b of this.balls) { const m = Math.hypot(b.vx, b.vy) || 1; b.vx *= sp / m; b.vy *= sp / m; this.moveBall(b, dt); }
+    this.balls = this.balls.filter((b) => !b.dead);
+    for (const u of this.powerups) {
+      u.y += 34 * dt;
+      if (u.y + 7 >= p.y && u.y <= p.y + p.h + 3 && u.x + 11 > p.x && u.x < p.x + p.w) { u.dead = true; this.applyPower(u.type); }
+      if (u.y > H) u.dead = true;
+    }
+    this.powerups = this.powerups.filter((u) => !u.dead);
+    for (const s of this.sparks) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 160 * dt; s.t -= dt; }
+    this.sparks = this.sparks.filter((s) => s.t > 0);
+    if (this.balls.length === 0) { this.lives--; this.state = 'lost'; this.clearT = 0; this.powerups = []; Sfx.lose(); Shell.haptic(40); return; }
+    if (this.left === 0) { this.state = 'clear'; this.clearT = 0; this.bonus = 100 * (this.level + 1); this.score += this.bonus; Sfx.clear(); }
+  },
+  touch(e) {
+    if (this.state === 'over') { const r = Over.touch(e); if (r === 'retry') this.enter(); else if (r === 'menu') go(Menu); return; }
+    if (this.state === 'pause') { const r = Pause.touch(e); if (r === 'resume') this.state = 'play'; else if (r === 'restart') this.enter(); else if (r === 'quit') go(Menu); return; }
+    if (e.type === 'down' || e.type === 'move') { const p = this.paddle; p.x = clamp(e.x - p.w / 2, 1, W - 1 - p.w); }
+    if (e.type === 'up' && e.tap && this.state === 'ready') this.launchReq = true;
+  },
+  launch() { const b = this.balls[0]; b.stuck = false; const a = Math.random() * 0.6 - 0.3; b.vx = Math.sin(a) * this.speed; b.vy = -Math.cos(a) * this.speed; this.state = 'play'; Sfx.paddle(); },
+  moveBall(b, dt) {
+    let dx = b.vx * dt, dy = b.vy * dt; const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 0.9) || 1; dx /= steps; dy /= steps;
+    for (let i = 0; i < steps; i++) {
+      b.x += dx;
+      if (b.x < 1) { b.x = 1; b.vx = Math.abs(b.vx); dx = Math.abs(dx); Sfx.bounce(); }
+      else if (b.x + 3 > W - 1) { b.x = W - 4; b.vx = -Math.abs(b.vx); dx = -Math.abs(dx); Sfx.bounce(); }
+      else if (this.hitBricks(b)) { b.x -= dx; b.vx = -b.vx; dx = -dx; }
+      b.y += dy;
+      if (b.y < 11) { b.y = 11; b.vy = Math.abs(b.vy); dy = Math.abs(dy); Sfx.bounce(); }
+      else if (this.hitBricks(b)) { b.y -= dy; b.vy = -b.vy; dy = -dy; }
+      else if (b.vy > 0) {
+        const p = this.paddle;
+        if (b.y + 3 >= p.y && b.y + 3 <= p.y + p.h + 1.5 && b.x + 3 > p.x && b.x < p.x + p.w) {
+          const rel = clamp((b.x + 1.5 - (p.x + p.w / 2)) / (p.w / 2), -1, 1);
+          const ang = rel * 1.05 + (Math.random() - 0.5) * 0.06; /* up to ~60 degrees off vertical */
+          const sp = Math.hypot(b.vx, b.vy); b.vx = Math.sin(ang) * sp; b.vy = -Math.cos(ang) * sp; b.y = p.y - 3;
+          dx = b.vx * dt / steps; dy = b.vy * dt / steps;
+          this.hits++; this.speed = Math.min(this.baseSpeed + 70, this.speed + 1.5); Sfx.paddle(); Shell.haptic(5);
+        }
+      }
+      if (b.y > H) { b.dead = true; return; }
+    }
+  },
+  hitBricks(b) {
+    let hit = false; const seen = {};
+    const pts = [[b.x, b.y], [b.x + 2.99, b.y], [b.x, b.y + 2.99], [b.x + 2.99, b.y + 2.99]];
+    for (const [cx, cy] of pts) {
+      const col = Math.floor((cx - this.BX) / this.CW), row = Math.floor((cy - this.BY) / this.CH);
+      if (col < 0 || col >= this.COLS || row < 0 || row >= this.rows || !this.grid[row][col]) continue;
+      const bx = this.BX + col * this.CW, by = this.BY + row * this.CH;
+      if (cx >= bx && cx < bx + this.BW && cy >= by && cy < by + this.BH) { const key = row * 16 + col; if (!seen[key]) { seen[key] = 1; this.damage(row, col); } hit = true; }
+    }
+    return hit;
+  },
+  damage(row, col) {
+    const hp = --this.grid[row][col]; this.score += 10 * (this.level + 1); Sfx.brick(hp); Shell.haptic(4);
+    const bx = this.BX + col * this.CW, by = this.BY + row * this.CH;
+    if (hp <= 0) {
+      this.grid[row][col] = 0; this.left--; this.score += 20 * (this.level + 1);
+      for (let i = 0; i < 5; i++) this.sparks.push({ x: bx + 7, y: by + 3, vx: (Math.random() - 0.5) * 90, vy: -Math.random() * 60 - 10, t: 0.35 + Math.random() * 0.2 });
+      if (Math.random() < 0.15 && this.powerups.length < 2) { const r = Math.random(); this.powerups.push({ x: bx + 1, y: by, type: r < 0.35 ? 'W' : r < 0.6 ? 'M' : r < 0.85 ? 'S' : 'L' }); }
+    }
+  },
+  applyPower(t) {
+    Sfx.powerup(); Shell.haptic(15); this.score += 50; const p = this.paddle;
+    if (t === 'W') { p.w = this.WIDE_W; this.wide = 12; p.x = clamp(p.x - 6, 1, W - 1 - p.w); }
+    else if (t === 'M') { const src = this.balls[0]; const sp = Math.hypot(src.vx, src.vy) || this.speed; const base = Math.atan2(src.vx, -src.vy); for (const a of [-0.6, 0.6]) this.balls.push({ x: src.x, y: src.y, vx: Math.sin(base + a) * sp, vy: -Math.cos(base + a) * sp }); }
+    else if (t === 'S') this.slow = 8;
+    else if (t === 'L') this.lives = Math.min(5, this.lives + 1);
+    this.msg = { text: { W: 'WIDE!', M: 'MULTI!', S: 'SLOW!', L: '1UP!' }[t], t: 1 };
+  },
+  draw() {
+    R.clear(3);
+    R.text(pad(this.score, 6), 2, 1, 0); R.textC('L' + (this.level + 1), 1, 1);
+    for (let i = 0; i < this.lives; i++) R.rect(157 - 8 * (i + 1), 3, 6, 2, 0);
+    R.rect(0, 10, W, 1, 0); R.rect(0, 10, 1, H - 10, 0); R.rect(W - 1, 10, 1, H - 10, 0);
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.COLS; c++) {
+      const hp = this.grid[r][c]; if (!hp) continue; const x = this.BX + c * this.CW, y = this.BY + r * this.CH;
+      if (hp >= 3) { R.rect(x, y, this.BW, this.BH, 0); R.rect(x + 1, y + 1, this.BW - 2, 1, 1); }
+      else if (hp === 2) { R.rect(x, y, this.BW, this.BH, 1); R.rect(x + 1, y + 1, this.BW - 2, 1, 2); }
+      else { R.frame(x, y, this.BW, this.BH, 1); R.rect(x + 6, y + 2, 2, 2, 1); }
+    }
+    for (const s of this.sparks) R.px(s.x, s.y, s.t > 0.2 ? 0 : 1);
+    for (const u of this.powerups) { R.box(u.x, u.y, 11, 7, 0); const g = MINI[u.type]; for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r][q] === '#') R.px(u.x + 4 + q, u.y + 1 + r, 3); }
+    const p = this.paddle;
+    if (this.wide > 0 && this.wide < 2 && Math.floor(this.t * 8) % 2) R.dither(p.x, p.y, p.w, p.h, 0, 2); else R.rect(p.x, p.y, p.w, p.h, 0);
+    R.rect(p.x, p.y, 2, p.h, 1); R.rect(p.x + p.w - 2, p.y, 2, p.h, 1);
+    if (this.state !== 'lost') for (const b of this.balls) { R.rect(b.x + 1, b.y, 1, 3, 0); R.rect(b.x, b.y + 1, 3, 1, 0); }
+    if (this.msg) { this.msg.t -= 1 / 60; if (this.msg.t > 0) R.textC(this.msg.text, 100, 0); else this.msg = null; }
+    if (this.state === 'ready') promptBox(['LEVEL ' + (this.level + 1), this.level === 0 && this.hits === 0 && this.lives === 3 ? 'DRAG TO MOVE' : 'BALLS ' + this.lives, 'A OR TAP TO LAUNCH'], this.t, 84);
+    if (this.state === 'clear') promptBox(['LEVEL ' + (this.level + 1) + ' CLEAR!', 'BONUS +' + this.bonus], this.t + 1, 84);
+    if (this.state === 'pause') Pause.draw();
+    if (this.state === 'over') Over.draw();
+  },
+};
+
+/* ======================= BLOCKS ======================= */
+const Blocks = {
+  name: 'BLOCKS', key: 'blocks', COLS: 10, ROWS: 20, C: 6, X0: 8, Y0: 12,
+  SHAPES: {
+    I: [[[0, 1], [1, 1], [2, 1], [3, 1]], [[2, 0], [2, 1], [2, 2], [2, 3]], [[0, 2], [1, 2], [2, 2], [3, 2]], [[1, 0], [1, 1], [1, 2], [1, 3]]],
+    O: [[[1, 0], [2, 0], [1, 1], [2, 1]], [[1, 0], [2, 0], [1, 1], [2, 1]], [[1, 0], [2, 0], [1, 1], [2, 1]], [[1, 0], [2, 0], [1, 1], [2, 1]]],
+    T: [[[1, 0], [0, 1], [1, 1], [2, 1]], [[1, 0], [1, 1], [2, 1], [1, 2]], [[0, 1], [1, 1], [2, 1], [1, 2]], [[1, 0], [0, 1], [1, 1], [1, 2]]],
+    S: [[[1, 0], [2, 0], [0, 1], [1, 1]], [[1, 0], [1, 1], [2, 1], [2, 2]], [[1, 1], [2, 1], [0, 2], [1, 2]], [[0, 0], [0, 1], [1, 1], [1, 2]]],
+    Z: [[[0, 0], [1, 0], [1, 1], [2, 1]], [[2, 0], [1, 1], [2, 1], [1, 2]], [[0, 1], [1, 1], [1, 2], [2, 2]], [[1, 0], [0, 1], [1, 1], [0, 2]]],
+    J: [[[0, 0], [0, 1], [1, 1], [2, 1]], [[1, 0], [2, 0], [1, 1], [1, 2]], [[0, 1], [1, 1], [2, 1], [2, 2]], [[1, 0], [1, 1], [0, 2], [1, 2]]],
+    L: [[[2, 0], [0, 1], [1, 1], [2, 1]], [[1, 0], [1, 1], [1, 2], [2, 2]], [[0, 1], [1, 1], [2, 1], [0, 2]], [[0, 0], [1, 0], [1, 1], [1, 2]]],
+  },
+  STYLE: { I: ['3333', '3113', '3113', '3333'], O: ['1111', '1111', '1111', '1111'], T: ['2222', '2222', '2222', '2222'], S: ['1313', '3131', '1313', '3131'], Z: ['1111', '1331', '1331', '1111'], J: ['2222', '2002', '2002', '2222'], L: ['3333', '3223', '3223', '3333'] },
+  KICKS: [[0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0], [0, -1], [-1, -1], [1, -1]],
+  enter() { this.best = Store.best(this.key); this.startLevel = clamp(Store.get('blocks.level', 0) | 0, 0, 9); this.state = 'level'; this.t = 0; this.rep = this.rep || makeRepeater(); },
+  begin() {
+    this.grid = Array.from({ length: this.ROWS }, () => new Array(this.COLS).fill(null));
+    this.bag = []; this.score = 0; this.lines = 0; this.level = this.startLevel; this.next = this.fromBag();
+    this.gravT = 0; this.lockT = 0; this.lockResets = 0; this.dasDir = null; this.dasT = 0; this.state = 'play'; this.t = 0;
+    this.clearRows = []; this.clearT = 0; this.flashHud = 0; this.shake = 0; this.drag = null; this.spawn();
+  },
+  fromBag() { if (!this.bag.length) { this.bag = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']; for (let i = 6; i > 0; i--) { const j = rnd(i + 1); [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]]; } } return this.bag.pop(); },
+  spawn() {
+    this.piece = { t: this.next, r: 0, x: 3, y: 0 }; this.next = this.fromBag();
+    this.piece.y = -Math.min(...this.SHAPES[this.piece.t][0].map((c) => c[1]));
+    this.gravT = 0; this.lockT = 0; this.lockResets = 0;
+    if (this.collides(this.piece)) this.topOut();
+  },
+  topOut() { this.state = 'dying'; this.dieT = 0; this.dieRow = this.ROWS; Input.releaseAll(); Sfx.die(); Shell.haptic(80); },
+  cells(p) { return this.SHAPES[p.t][p.r].map(([x, y]) => [x + p.x, y + p.y]); },
+  collides(p) { for (const [x, y] of this.cells(p)) { if (x < 0 || x >= this.COLS || y >= this.ROWS) return true; if (y >= 0 && this.grid[y][x]) return true; } return false; },
+  tryMove(dx, dy) { const p = { t: this.piece.t, r: this.piece.r, x: this.piece.x + dx, y: this.piece.y + dy }; if (this.collides(p)) return false; this.piece = p; return true; },
+  tryRotate(d) { const r = (this.piece.r + d + 4) % 4; for (const [kx, ky] of this.KICKS) { const q = { t: this.piece.t, r, x: this.piece.x + kx, y: this.piece.y + ky }; if (!this.collides(q)) { this.piece = q; return true; } } return false; },
+  grounded() { return this.collides({ t: this.piece.t, r: this.piece.r, x: this.piece.x, y: this.piece.y + 1 }); },
+  gravityFrames() { const l = this.level; return l <= 8 ? [48, 43, 38, 33, 28, 23, 18, 13, 8][l] : l === 9 ? 6 : l <= 12 ? 5 : l <= 15 ? 4 : l <= 18 ? 3 : l <= 28 ? 2 : 1; },
+  autoPause() { if (this.state === 'play') { this.state = 'pause'; Pause.open(); } },
+  update(dt) {
+    this.t += dt; if (this.flashHud > 0) this.flashHud -= dt; if (this.shake > 0) this.shake--;
+    if (this.state === 'over') { const r = Over.update(dt); if (r === 'retry') this.begin(); else if (r === 'menu') go(Menu); return; }
+    if (this.state === 'pause') { const r = Pause.update(); if (r === 'resume') this.state = 'play'; else if (r === 'restart') this.begin(); else if (r === 'quit') go(Menu); return; }
+    if (this.state === 'level') {
+      const h = this.rep(navDirH());
+      if (h === 'left') { this.startLevel = Math.max(0, this.startLevel - 1); Sfx.blip(); }
+      if (h === 'right') { this.startLevel = Math.min(9, this.startLevel + 1); Sfx.blip(); }
+      if (Input.pressed('a') || Input.pressed('start')) { Store.set('blocks.level', this.startLevel); Sfx.confirm(); this.begin(); }
+      if (Input.pressed('b')) { Sfx.back(); go(Menu); }
+      return;
+    }
+    if (this.state === 'dying') { this.dieT += dt; this.dieRow = Math.max(0, this.ROWS - Math.floor(this.dieT / 0.035)); if (this.dieT > 1.2) { this.state = 'over'; Over.show(this, this.score); } return; }
+    if (this.state === 'clearing') { this.clearT += dt; if (this.clearT >= 0.42) this.finishClear(); return; }
+    if (Input.pressed('start')) { this.state = 'pause'; Pause.open(); return; }
+    /* sideways with delayed auto-shift */
+    const h = navDirH();
+    if (h !== this.dasDir) { this.dasDir = h; this.dasT = 0; if (h) this.shift(h === 'left' ? -1 : 1); }
+    else if (h) { this.dasT++; if (this.dasT >= 11 && (this.dasT - 11) % 3 === 0) this.shift(h === 'left' ? -1 : 1); }
+    if (Input.pressed('a')) this.rot(1);
+    if (Input.pressed('b')) this.rot(-1);
+    if (Input.pressed('up')) { this.hardDrop(); return; }
+    const soft = Input.isDown('down');
+    const gf = soft ? Math.min(2, this.gravityFrames()) : this.gravityFrames();
+    this.gravT++;
+    if (this.gravT >= gf) { this.gravT = 0; if (this.tryMove(0, 1)) { if (soft) this.score += 1; this.lockT = 0; } }
+    if (this.state !== 'play') return;
+    if (this.grounded()) { this.lockT++; if (this.lockT >= 30 || (soft && this.lockT >= 6)) this.lock(); } else this.lockT = 0;
+  },
+  shift(dx) { if (!this.tryMove(dx, 0)) return false; Sfx.move(); if (this.grounded() && this.lockResets < 12) { this.lockT = 0; this.lockResets++; } return true; },
+  rot(d) { if (!this.tryRotate(d)) return false; Sfx.rotate(); if (this.grounded() && this.lockResets < 12) { this.lockT = 0; this.lockResets++; } return true; },
+  hardDrop() { let n = 0; while (this.tryMove(0, 1)) n++; this.score += n * 2; Sfx.drop(); this.shake = 4; Shell.haptic(10); this.lock(); },
+  lock() {
+    let above = false;
+    for (const [x, y] of this.cells(this.piece)) { if (y < 0) above = true; else this.grid[y][x] = this.piece.t; }
+    if (above) return this.topOut();
+    Sfx.lock();
+    const full = []; for (let y = 0; y < this.ROWS; y++) if (this.grid[y].every((c) => c)) full.push(y);
+    if (full.length) { this.state = 'clearing'; this.clearRows = full; this.clearT = 0; Sfx.line(full.length); Shell.haptic(full.length >= 4 ? 40 : 12); }
+    else this.spawn();
+  },
+  finishClear() {
+    const n = this.clearRows.length;
+    this.grid = this.grid.filter((_, y) => this.clearRows.indexOf(y) < 0);
+    while (this.grid.length < this.ROWS) this.grid.unshift(new Array(this.COLS).fill(null));
+    this.score += [0, 40, 100, 300, 1200][n] * (this.level + 1); this.lines += n;
+    const nl = this.startLevel + Math.floor(this.lines / 10);
+    if (nl > this.level) { this.level = nl; this.flashHud = 1.2; Sfx.levelup(); }
+    this.state = 'play'; this.spawn();
+  },
+  touch(e) {
+    if (this.state === 'over') { const r = Over.touch(e); if (r === 'retry') this.begin(); else if (r === 'menu') go(Menu); return; }
+    if (this.state === 'pause') { const r = Pause.touch(e); if (r === 'resume') this.state = 'play'; else if (r === 'restart') this.begin(); else if (r === 'quit') go(Menu); return; }
+    if (this.state === 'level') {
+      if (e.type !== 'up' || !e.tap) return;
+      if (e.y > 92) { Store.set('blocks.level', this.startLevel); Sfx.confirm(); this.begin(); }
+      else if (e.x < W / 2) { this.startLevel = Math.max(0, this.startLevel - 1); Sfx.blip(); } else { this.startLevel = Math.min(9, this.startLevel + 1); Sfx.blip(); }
+      return;
+    }
+    if (this.state !== 'play') return;
+    if (e.type === 'down') this.drag = { x: 0, y: 0, axis: null };
+    else if (e.type === 'move' && this.drag) {
+      const d = this.drag, cell = this.C * e.k;
+      /* lock onto the dominant axis once the thumb has clearly moved, so a flick never nudges the piece sideways */
+      if (!d.axis && Math.max(Math.abs(e.dx), Math.abs(e.dy)) >= 8) { d.axis = Math.abs(e.dx) > Math.abs(e.dy) ? 'x' : 'y'; if (d.axis === 'x') d.x = e.dx - e.ddx; else d.y = Math.max(0, e.dy - e.ddy); }
+      if (d.axis === 'x') { d.x += e.ddx; while (d.x >= cell) { this.shift(1); d.x -= cell; } while (d.x <= -cell) { this.shift(-1); d.x += cell; } }
+      if (d.axis === 'y') { d.y += e.ddy; while (d.y >= cell) { if (this.tryMove(0, 1)) { this.score += 1; this.gravT = 0; this.lockT = 0; } else if (this.grounded()) this.lockT = Math.max(this.lockT, 24); d.y -= cell; } if (d.y < 0) d.y = 0; }
+    } else if (e.type === 'up') { if (e.tap) this.rot(1); else if (e.flick === 'down') this.hardDrop(); this.drag = null; }
+  },
+  cellImg(t) {
+    if (!this.cache || this.cache.pal !== R.pal) this.cache = { pal: R.pal, imgs: {} };
+    let c = this.cache.imgs[t];
+    if (!c) {
+      c = document.createElement('canvas'); c.width = 6; c.height = 6; const x = c.getContext('2d');
+      x.fillStyle = R.pal[0]; x.fillRect(0, 0, 6, 6);
+      const st = this.STYLE[t]; for (let r = 0; r < 4; r++) for (let q = 0; q < 4; q++) { x.fillStyle = R.pal[+st[r][q]]; x.fillRect(1 + q, 1 + r, 1, 1); }
+      this.cache.imgs[t] = c;
+    }
+    return c;
+  },
+  cell(x, y, t) { R.ctx.drawImage(this.cellImg(t), x, y); },
+  drawLevelSelect() {
+    R.clear(3);
+    R.textC('BLOCKS', 26, 0, 2); R.rect(44, 44, 72, 1, 1);
+    R.textC('START LEVEL', 58, 1);
+    R.textC('◀  ' + this.startLevel + '  ▶', 72, 0, 1);
+    R.textC(Math.floor(this.t * 2.5) % 2 ? 'A TO START' : '', 100, 0);
+    R.textC('BEST ' + pad(this.best, 6), 124, 1);
+  },
+  draw() {
+    if (this.state === 'level') { this.drawLevelSelect(); return; }
+    R.clear(3);
+    const X0 = this.X0 + (this.shake > 0 ? (this.shake % 2 ? 1 : -1) : 0), Y0 = this.Y0, C = this.C;
+    R.frame(X0 - 1, Y0 - 1, this.COLS * C + 2, this.ROWS * C + 2, 0);
+    for (let y = 0; y < this.ROWS; y++) {
+      const flash = this.state === 'clearing' && this.clearRows.indexOf(y) >= 0;
+      if (flash) { R.rect(X0, Y0 + y * C, this.COLS * C, C, Math.floor(this.clearT / 0.07) % 2 ? 3 : 0); continue; }
+      if (this.state === 'dying' && y >= this.dieRow) { R.rect(X0, Y0 + y * C, this.COLS * C, C, 0); R.rect(X0, Y0 + y * C + 1, this.COLS * C, 1, 1); continue; }
+      for (let x = 0; x < this.COLS; x++) if (this.grid[y][x]) this.cell(X0 + x * C, Y0 + y * C, this.grid[y][x]);
+    }
+    if (this.state === 'play' || this.state === 'pause') {
+      let gy = this.piece.y; while (!this.collides({ t: this.piece.t, r: this.piece.r, x: this.piece.x, y: gy + 1 })) gy++;
+      if (gy !== this.piece.y) for (const [x, y] of this.SHAPES[this.piece.t][this.piece.r]) { const py = y + gy; if (py >= 0) R.frame(X0 + (x + this.piece.x) * C, Y0 + py * C, C, C, 1); }
+      for (const [x, y] of this.cells(this.piece)) if (y >= 0) this.cell(X0 + x * C, Y0 + y * C, this.piece.t);
+    }
+    /* side panel */
+    R.text('NEXT', 82, 12, 1); R.frame(80, 21, 28, 28, 0);
+    const ns = this.SHAPES[this.next][0], nw = Math.max(...ns.map((c) => c[0])) + 1, nh = Math.max(...ns.map((c) => c[1])) - Math.min(...ns.map((c) => c[1])) + 1, nmin = Math.min(...ns.map((c) => c[1]));
+    const nx = 80 + Math.floor((28 - nw * C) / 2), ny = 21 + Math.floor((28 - nh * C) / 2) - nmin * C;
+    for (const [x, y] of ns) this.cell(nx + x * C, ny + y * C, this.next);
+    R.text('SCORE', 80, 56, 1); R.text(pad(this.score, 6), 80, 65, 0);
+    R.text('LEVEL', 80, 78, this.flashHud > 0 && Math.floor(this.flashHud * 8) % 2 ? 0 : 1); R.text(pad(this.level, 2), 80, 87, 0);
+    R.text('LINES', 80, 100, 1); R.text(pad(this.lines, 3), 80, 109, 0);
+    R.text('BEST', 80, 122, 1); R.text(pad(Math.max(this.best, this.score), 6), 80, 131, 0);
+    if (this.state === 'pause') Pause.draw();
+    if (this.state === 'over') Over.draw();
+  },
+};
+
+/* ---------- main loop: fixed 60 Hz simulation, draw once per animation frame ---------- */
+const STEP = 1 / 60; let lastT = 0, acc = 0;
+function frame(now) {
+  if (!lastT) lastT = now; let dt = (now - lastT) / 1000; lastT = now; if (dt > 0.25) dt = 0.25; acc += dt;
+  let n = 0;
+  while (acc >= STEP && n < 5) { scene.update(STEP); Input.endStep(); acc -= STEP; n++; }
+  if (n === 5) acc = 0;
+  scene.draw(); frameCount++;
+  requestAnimationFrame(frame);
+}
+function start() { Shell.init(); go(PowerOff); requestAnimationFrame(frame); }
+if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start); else start();
+/* small debug/test surface */
+window.PocketArcade = { get scene() { return scene; }, go, scenes: { PowerOff, Boot, Menu, Options, Snake, Bricks, Blocks }, Input, Store, R, Shell, Sfx, Over, Pause, step(n = 1) { for (let i = 0; i < n; i++) { scene.update(STEP); Input.endStep(); } scene.draw(); } };
+
+</script>
+<script>
+/* ---------- offline: service worker + install prompt (only when served over https or opened locally) ---------- */
+(function () {
+  if (location.protocol === 'file:') { Shell.setLed('offline', 'Local copy: plays offline.'); return; }
+  if (!('serviceWorker' in navigator) || !(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
+  Shell.setLed('power', 'Saving for offline play...');
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); Shell.installPrompt = e; });
+  $('ledWrap').addEventListener('click', () => { if (Shell.installPrompt) { Shell.installPrompt.prompt(); Shell.installPrompt = null; } });
+  async function cached() {
+    try { const keys = await caches.keys(); for (const k of keys) { const c = await caches.open(k); if (await c.match('./index.html') || await c.match('./') || await c.match(location.href, { ignoreSearch: true })) return true; } } catch (e) {}
+    return false;
+  }
+  async function check() { if (await cached()) Shell.setLed('offline', Shell.installPrompt ? 'Saved for offline play. Tap to install it on your home screen.' : 'Saved for offline play. Add it to your home screen from the browser menu.'); }
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    check();
+    const watch = (sw) => { if (sw) sw.addEventListener('statechange', () => { if (sw.state === 'activated') setTimeout(check, 400); }); };
+    watch(reg.installing || reg.waiting); reg.addEventListener('updatefound', () => watch(reg.installing));
+    if (reg.active) setTimeout(check, 400);
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => setTimeout(check, 400));
+})();
+
+</script>
+</body>
+</html>
